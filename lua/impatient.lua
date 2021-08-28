@@ -77,16 +77,7 @@ do
       -- Not sure this branch is reachable
       return
     end
-    local f, fhash, codes = unpack(M.cache[name])
-    -- if fhash ~= hash(f) then
-    --   M.cache[name] = nil
-    --   log('Rebuilding cache for module', name)
-    --   package.preload[name] = nil
-    --   return require(name)
-    --   -- load_package_with_cache(name)
-    --   -- _, _, codes = unpack(M.cache[name])
-    --   -- preloader(name)
-    -- end
+    local f, _, codes = unpack(M.cache[name])
 
     return loadstring(codes)()
   end
