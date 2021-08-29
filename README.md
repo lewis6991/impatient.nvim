@@ -55,6 +55,30 @@ Delete the current cache file. A new cache file will be created the next time yo
 
 View log of impatient.
 
+## Performance Example
+
+Figures were collected using [packers profiler](https://github.com/wbthomason/packer.nvim#profiling).
+
+| Plugin             | Standard    | With Impatient.nvim |
+| ------------------ | ----------- | ------------------- |
+| bufferline.nvim    | 2.017417ms  | 0.1115ms            |
+| cleanfold.nvim     | 0.418625ms  | 0.018334ms          |
+| foldsigns.nvim     | 0.281416ms  | 0.012709ms          |
+| gitsigns.nvim      | 7.969ms     | 1.455959ms          |
+| null-ls.nvim       | 11.671458ms | 1.415334ms          |
+| nvim-cmp           | 14.133541ms | 0.612583ms          |
+| nvim-colorizer.lua | 3.787792ms  | 1.300458ms          |
+| nvim-lspconfig     | 9.986875ms  | 2.272292ms          |
+| nvim-notify        | 0.0005ms    | 0.000375ms          |
+| nvim-treesitter    | 4.455458ms  | 1.265584ms          |
+| spaceless.nvim     | 0.221166ms  | 0.049958ms          |
+| spellsitter.nvim   | 1.875083ms  | 0.303666ms          |
+| telescope.nvim     | 5.416709ms  | 0.919625ms          |
+| trouble.nvim       | 10.417167ms | 0.207ms             |
+| vim-dirvish        | 0.002125ms  | 025917ms            |
+| vim-lengthmatters  | 0.010166ms  | 0.047667ms          |
+| vim-searchlight    | 0.005208ms  | 0.001334ms          |
+
 ## Credit
 
 All credit goes to @bfredl who implemented the majority of this plugin in https://github.com/neovim/neovim/pull/15436.
