@@ -37,6 +37,23 @@ do
 
   _G.__luacache = M
 
+  local function load_mpack()
+    local has_builtin_mpack, mpack_mod = pcall(require, 'mpack')
+
+    if has_builtin_mpack then
+      return mpack_mod
+    end
+
+    local has_packer, packer_luarocks = pcall(require, 'packer.luarocks')
+    if has_packer then
+      packer_luarocks.setup_paths()
+    end
+
+    return require('mpack')
+  end
+
+  local mpack = load_mpack()
+
   local function log(...)
     M.log[#M.log+1] = table.concat({...}, ' ')
   end
@@ -81,8 +98,6 @@ do
 
     return loadstring(codes)()
   end
-
-  local mpack = require'mpack'
 
   local function setup()
     if vim.loop.fs_stat(M.path) then
