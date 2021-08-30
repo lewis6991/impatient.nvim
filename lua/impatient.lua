@@ -64,6 +64,13 @@ do
     end
   end
 
+  local function is_cacheable(path)
+    -- Don't cache files in /tmp since they are not likely to persist.
+    -- Note: Appimage versions of Neovim mount $VIMRUNTIME in /tmp in a unique
+    -- directory on each launch.
+    return not vim.startswith(path, '/tmp/')
+  end
+
   local function hash(modpath)
     local stat = vim.loop.fs_stat(modpath)
     if stat then
@@ -80,8 +87,12 @@ do
         local f, err = loadfile(found[1])
 
         local modpath = found[1]
-        M.cache[name] = {modpath, hash(modpath), string.dump(f)}
-        log('Creating cache for module', name)
+        if is_cacheable(modpath) then
+          log('Creating cache for module', name)
+          M.cache[name] = {modpath, hash(modpath), string.dump(f)}
+        else
+          log('Unable to cache module', name)
+        end
         M.dirty = true
 
         return f or error(err)
