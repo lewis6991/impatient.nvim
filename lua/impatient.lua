@@ -65,7 +65,10 @@ do
   end
 
   local function hash(modpath)
-    return vim.loop.fs_stat(modpath).mtime.sec
+    local stat = vim.loop.fs_stat(modpath)
+    if stat then
+      return stat.mtime.sec
+    end
   end
 
   local function load_package_with_cache(name)
