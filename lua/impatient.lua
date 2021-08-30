@@ -86,6 +86,7 @@ do
       if #found > 0 then
         local f, err = loadfile(found[1])
 
+        if f == nil then return err end
         local modpath = found[1]
         if is_cacheable(modpath) then
           log('Creating cache for module', name)
@@ -95,7 +96,7 @@ do
         end
         M.dirty = true
 
-        return f or error(err)
+        return f
       end
     end
     return nil
