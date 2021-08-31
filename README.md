@@ -79,9 +79,7 @@ Figures were collected using [packers profiler](https://github.com/wbthomason/pa
 | spellsitter.nvim   | 1.875083ms  | 0.303666ms          |
 | telescope.nvim     | 5.416709ms  | 0.919625ms          |
 | trouble.nvim       | 10.417167ms | 0.207ms             |
-| vim-dirvish        | 0.145166ms  | 0.047667ms          |
-| vim-lengthmatters  | 0.002125ms  | 0.001334ms          |
-| vim-searchlight    | 0.010166ms  | 0.005208ms          |
+
 
 ## Credit
 
