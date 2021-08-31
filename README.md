@@ -10,7 +10,7 @@ This plugin does several things to speed up `require` in Lua.
 
 ### Restores the preloader
 
-Neovim currently places its own loader for searching runtime files at the front of `packer.loaders`. This prevents any preloaders in `package.preload` from being used. This plugin fixes that by moving the default package preloader to run before Neovims loader.
+Neovim currently places its own loader for searching runtime files at the front of `package.loaders`. This prevents any preloaders in `package.preload` from being used. This plugin fixes that by moving the default package preloader to run before Neovims loader.
 
 ### Implements cache for all loaded Lua modules
 
@@ -63,7 +63,7 @@ View log of impatient.
 
 Figures were collected using [packers profiler](https://github.com/wbthomason/packer.nvim#profiling).
 
-| Plugin             | Standard    | With Impatient.nvim |
+| Plugin + config    | Standard    | With Impatient.nvim |
 | ------------------ | ----------- | ------------------- |
 | bufferline.nvim    | 2.017417ms  | 0.1115ms            |
 | cleanfold.nvim     | 0.418625ms  | 0.018334ms          |
