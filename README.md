@@ -53,7 +53,7 @@ require('impatient')
 
 `:LuaCacheClear`:
 
-Delete the current cache file. A new cache file will be created the next time you load Neovim.
+Remove the loaded cache and delete the cache file. A new cache file will be created the next time you load Neovim.
 
 `:LuaCacheLog`:
 

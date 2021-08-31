@@ -139,6 +139,11 @@ function M.save_cache()
   end
 end
 
+function M.clear_cache()
+  M.cache = {}
+  os.remove(M.path)
+end
+
 local function setup()
   if vim.loop.fs_stat(M.path) then
     log('Loading cache file %s', M.path)
@@ -174,7 +179,7 @@ local function setup()
       autocmd OptionSet runtimepath lua _G.__luacache.update_reduced_rtp(true)
     augroup END
 
-    command LuaCacheClear lua os.remove(_G.__luacache.path)
+    command LuaCacheClear lua _G.__luacache.clear_cache()
     command LuaCacheLog   lua _G.__luacache.print_log()
   ]]
 
