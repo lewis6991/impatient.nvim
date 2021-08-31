@@ -34,6 +34,10 @@ use 'lewis6991/impatient.nvim'
 
 -- If your Neovim install doesn't include mpack, e.g. if installed via
 -- Homebrew, then you need to also install mpack from luarocks.
+-- There is an existing issue with luarocks on macOS where `luarocks install` is using a different version of lua.
+-- @see: https://github.com/wbthomason/packer.nvim/issues/180
+-- Make sure to add this on top of your plugins.lua to resolve this
+vim.fn.setenv("MACOSX_DEPLOYMENT_TARGET", "10.15")
 use {'lewis6991/impatient.nvim', rocks = 'mpack'}
 ```
 
