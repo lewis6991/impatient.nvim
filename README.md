@@ -59,6 +59,14 @@ Remove the loaded cache and delete the cache file. A new cache file will be crea
 
 View log of impatient.
 
+`:LuaCacheProfile`:
+
+View profiling data. To enable Impatient must be setup with:
+
+```viml
+lua require'impatient'.enable_profile()
+```
+
 ## Performance Example
 
 Measured on a M1 MacBook Air.

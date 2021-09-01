@@ -1,6 +1,7 @@
 
 local M = {
   cache = {},
+  profile = nil,
   dirty = false,
   path = vim.fn.stdpath('cache')..'/luacache',
   log = {}
@@ -35,6 +36,14 @@ function M.print_log()
   end
 end
 
+function M.enable_profile()
+  M.profile = {}
+  M.print_profile = function()
+    require('impatient.profile').print_profile(M.profile)
+  end
+  vim.cmd[[command LuaCacheProfile lua _G.__luacache.print_profile()]]
+end
+
 local function is_cacheable(path)
   -- Don't cache files in /tmp since they are not likely to persist.
   -- Note: Appimage versions of Neovim mount $VIMRUNTIME in /tmp in a unique
@@ -49,13 +58,30 @@ local function hash(modpath)
   end
 end
 
+local function hrtime()
+  if M.profile then
+    return vim.loop.hrtime()
+  end
+end
+
 local function load_package_with_cache(name)
+  local resolve_start = hrtime()
+
   local basename = name:gsub('%.', '/')
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
+
   for _, path in ipairs(paths) do
     local modpath = vim.api.nvim_get_runtime_file(path, false)[1]
     if modpath then
+      local exec_start = hrtime()
       local chunk, err = loadfile(modpath)
+
+      if M.profile then
+        M.profile[name] = {
+          resolve = exec_start - resolve_start,
+          execute = hrtime() - exec_start
+        }
+      end
 
       if chunk == nil then return err end
 
@@ -105,6 +131,7 @@ local function load_package_with_cache_reduced_rtp(name)
 end
 
 local function load_from_cache(name)
+  local resolve_start = hrtime()
   if M.cache[name] == nil then
     log('No cache for module %s', name)
     return 'No cache entry'
@@ -119,7 +146,15 @@ local function load_from_cache(name)
     return 'Stale cache'
   end
 
+  local exec_start = hrtime()
   local chunk = loadstring(codes)
+
+  if M.profile then
+    M.profile[name] = {
+      resolve = exec_start - resolve_start,
+      execute = hrtime() - exec_start
+    }
+  end
 
   if not chunk then
     M.cache[name] = nil
@@ -186,3 +221,5 @@ local function setup()
 end
 
 setup()
+
+return M
