@@ -64,70 +64,57 @@ local function hrtime()
   end
 end
 
+local lrtp
+
 local function load_package_with_cache(name)
   local resolve_start = hrtime()
 
   local basename = name:gsub('%.', '/')
-  local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
 
-  for _, path in ipairs(paths) do
-    local modpath = vim.api.nvim_get_runtime_file(path, false)[1]
-    if modpath then
-      local exec_start = hrtime()
-      local chunk, err = loadfile(modpath)
-
-      if M.profile then
-        M.profile[name] = {
-          resolve = exec_start - resolve_start,
-          execute = hrtime() - exec_start
-        }
-      end
-
-      if chunk == nil then return err end
-
-      if is_cacheable(modpath) then
-        log('Creating cache for module %s', name)
-        M.cache[name] = {modpath, hash(modpath), string.dump(chunk)}
-        M.dirty = true
-      else
-        log('Unable to cache module %s', name)
-      end
-
-      return chunk
-    end
+  if not lrtp then
+    M.update_lua_rtp_cache()
   end
+
+  if lrtp[basename] then
+    local modpath = lrtp[basename]
+    local exec_start = hrtime()
+    local chunk, err = loadfile(modpath)
+
+    if M.profile then
+      M.profile[basename] = {
+        resolve = exec_start - resolve_start,
+        execute = hrtime() - exec_start
+      }
+    end
+
+    if chunk == nil then return err end
+
+    if is_cacheable(modpath) then
+      log('Creating cache for module %s', basename)
+      M.cache[basename] = {modpath, hash(modpath), string.dump(chunk)}
+      M.dirty = true
+    else
+      log('Unable to cache module %s', basename)
+    end
+
+    return chunk
+  end
+
   return nil
 end
 
-local reduced_rtp
-
 -- Speed up non-cached loads by reducing the rtp path during requires
-function M.update_reduced_rtp()
-  local luadirs = vim.api.nvim_get_runtime_file('lua/', true)
-
-  for i = 1, #luadirs do
-    luadirs[i] = luadirs[i]:sub(1, -6)
+function M.update_lua_rtp_cache()
+  lrtp = {}
+  for _, l in ipairs(vim.api.nvim_get_runtime_file('lua/**/*.lua', true)) do
+    local mod
+    if vim.endswith(l, '/init.lua') then
+      mod = l:match('/lua/(.*)/init%.lua$')
+    else
+      mod = l:match('/lua/(.*)%.lua$')
+    end
+    lrtp[mod] = l
   end
-
-  reduced_rtp = table.concat(luadirs, ',')
-end
-
-local function load_package_with_cache_reduced_rtp(name)
-  local orig_rtp = vim.o.rtp
-
-  if not reduced_rtp then
-    M.update_reduced_rtp()
-  end
-
-  -- vim.api.nvim_set_option('rtp', reduced_rtp)
-  vim.cmd('noautocmd set rtp='..reduced_rtp)
-
-  local found = load_package_with_cache(name)
-
-  -- vim.api.nvim_set_option('rtp', orig_rtp)
-  vim.cmd('noautocmd set rtp='..orig_rtp)
-
-  return found
 end
 
 local function load_from_cache(name)
@@ -204,14 +191,13 @@ local function setup()
     table.insert(package.loaders, 2, vim_load)
   end
 
-  table.insert(package.loaders, 2, load_from_cache)
-  table.insert(package.loaders, 3, load_package_with_cache_reduced_rtp)
-  table.insert(package.loaders, 4, load_package_with_cache)
+  -- table.insert(package.loaders, 2, load_from_cache)
+  table.insert(package.loaders, 2, load_package_with_cache)
 
   vim.cmd[[
     augroup impatient
       autocmd VimEnter,VimLeave * lua _G.__luacache.save_cache()
-      autocmd OptionSet runtimepath lua _G.__luacache.update_reduced_rtp(true)
+      autocmd OptionSet runtimepath lua _G.__luacache.update_lua_rtp_cache(true)
     augroup END
 
     command LuaCacheClear lua _G.__luacache.clear_cache()
