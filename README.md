@@ -344,6 +344,7 @@ Measured on a M1 MacBook Air.
     </tbody>
 </table>
 </details>
+
 Total resolve: 68.108365ms, total execute: 56.954069ms
 
 <details>
