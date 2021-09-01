@@ -61,7 +61,7 @@ View log of impatient.
 
 `:LuaCacheProfile`:
 
-View profiling data. To enable Impatient must be setup with:
+View profiling data. To enable, Impatient must be setup with:
 
 ```viml
 lua require'impatient'.enable_profile()
