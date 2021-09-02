@@ -120,12 +120,12 @@ local function load_package_with_cache_reduced_rtp(name)
   end
 
   -- vim.api.nvim_set_option('rtp', reduced_rtp)
-  vim.cmd('noautocmd set rtp='..reduced_rtp)
+  vim.cmd('noautocmd set rtp='..vim.fn.fnameescape(reduced_rtp))
 
   local found = load_package_with_cache(name)
 
   -- vim.api.nvim_set_option('rtp', orig_rtp)
-  vim.cmd('noautocmd set rtp='..orig_rtp)
+  vim.cmd('noautocmd set rtp='..vim.fn.fnameescape(orig_rtp))
 
   return found
 end
