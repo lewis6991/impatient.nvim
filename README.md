@@ -1,28 +1,34 @@
 **WIP**
 
-Speed up loading Lua modules in Neovim.
+Speed up loading Lua modules in Neovim to improve startup time.
+
+Optimisations include:
+
+* Cache for compiled lua modules.
+* Improved default package loader for uncached module loads
+* Restoring the preloader
 
 The expectation is that a form of this plugin will eventually be merged into Neovim core via this [PR](https://github.com/neovim/neovim/pull/15436). This plugin serves as a way for impatient users to speed up there Neovim 0.5 until the PR is merged and included in a following Neovim release at which point this plugin will be redundant.
 
-## Description
+## Optimisations
 
 This plugin does several things to speed up `require` in Lua.
 
-### Restores the preloader
-
-Neovim currently places its own loader for searching runtime files at the front of `package.loaders`. This prevents any preloaders in `package.preload` from being used. This plugin fixes that by moving the default package preloader to run before Neovims loader.
-
 ### Implements cache for all loaded Lua modules
 
-This is done by using `loadstring` to compile the Lua modules and stores them in a cache file. This also has the benefit of avoiding Neovims expensive module loader which uses `nvim_get_runtime_file()`. The cache is invalidated using the modified time of each modules file.
+This is done by using `loadstring` to compile the Lua modules to bytecode and stores them in a cache file. This also has the benefit of avoiding Neovim's expensive module loader which uses `nvim_get_runtime_file()`. The cache is invalidated using the modified time of each modules file path.
 
-Also note that [mpack](https://luarocks.org/modules/tarruda/mpack) is required for reading and writing a cache file. Regular Neovim builds will have this built in, however if your build hasn't then you should be able to install it via [packer](https://github.com/wbthomason/packer.nvim).
+**Note**: [mpack](https://luarocks.org/modules/tarruda/mpack) is required for reading and writing of the cache file. Regular Neovim builds will have this built in, however if your build hasn't then you should be able to install it via [packer](https://github.com/wbthomason/packer.nvim), see installation details below.
 
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache`.
 
 ### Reduces `runtimepath` during `require`
 
-`runtimepath` contains directories for many things used by Neovim including Lua modules; the full list of what it is used for can be found using `:help 'runtimepath'`. When `require` is called, Neovim searches through every directory in `runtimepath` until it finds a match. This means it ends up searching in every plugin that doesn't have a Lua directory, which can be quite a lot and makes `require` much more expensive to run. To mitigate this, Impatient reduces `runtimepath` during `require` to only contain directories that have a Lua directory.
+`runtimepath` contains directories for many things used by Neovim including Lua modules; the full list of what it is used for can be found using `:help 'runtimepath'`. When `require` is called, Neovim searches through every directory in `runtimepath` until it finds a match. This means it ends up searching in every plugin that doesn't have a Lua directory, which can be a lot and makes `require` much more expensive to run. To mitigate this, Impatient reduces `runtimepath` during `require` to only contain directories that have a Lua directory.
+
+### Restores the preloader
+
+Neovim currently places its own loader for searching runtime files at the front of `package.loaders`. This prevents any preloaders in `package.preload` from being used. This plugin fixes that by moving the default package preloader to run before Neovim's loader. For example, LuaJIT provides preloaders for the built-in modules `ffi` and `bit`, so this optimisation will improve the loading of those.
 
 ## Installation
 
@@ -76,7 +82,7 @@ Measured on a M1 MacBook Air.
 
 <table>
     <thead>
-        <tr><th>Module</th><th>Resolve</th><th>Execute</th><th>Total</th></tr>
+        <tr><th>Module</th><th>Resolve</th><th>Load</th><th>Total</th></tr>
     </thead>
     <tbody>
         <tr><td>bufferline.buffers</td><td>0.259858ms</td><td>0.087198ms</td><td>0.347056ms</td></tr>
@@ -353,14 +359,14 @@ Measured on a M1 MacBook Air.
 </table>
 </details>
 
-Total resolve: 68.108365ms, total execute: 56.954069ms
+Total resolve: 68.108365ms, total load: 56.954069ms
 
 <details>
 <summary>With reduced runtimepath</summary>
 
 <table>
     <thead>
-        <tr><th>Module</th><th>Resolve</th><th>Execute</th><th>Total</th></tr>
+        <tr><th>Module</th><th>Resolve</th><th>Load</th><th>Total</th></tr>
     </thead>
     <tbody>
         <tr><td>bufferline.buffers</td><td>0.024142ms</td><td>0.087075ms</td><td>0.111217ms</td></tr>
@@ -637,14 +643,14 @@ Total resolve: 68.108365ms, total execute: 56.954069ms
 </table>
 </details>
 
-Total resolve: 39.302892ms, total execute: 58.602757ms
+Total resolve: 39.302892ms, total load: 58.602757ms
 
 <details>
 <summary>With cache</summary>
 
 <table>
     <thead>
-        <tr><th>Module</th><th>Resolve</th><th>Execute</th><th>Total</th></tr>
+        <tr><th>Module</th><th>Resolve</th><th>Load</th><th>Total</th></tr>
     </thead>
     <tbody>
         <tr><td>bufferline.buffers</td><td>0.004250ms</td><td>0.012261ms</td><td>0.016511ms</td></tr>
@@ -923,7 +929,7 @@ Total resolve: 39.302892ms, total execute: 58.602757ms
 
 Cache load: 3.414473ms
 
-Total resolve: 2.122016ms, total execute: 4.539859ms
+Total resolve: 2.122016ms, total load: 4.539859ms
 
 
 ## Credit
