@@ -38,12 +38,12 @@ function M.print_profile(profile)
     lines[#lines+1] = string.format(...)
   end
 
-  add('%-'..name_pad..'s │ Resolve    │ Load       │ Total      │', 'Module')
-  add('%s │ ---------- │ ---------- │ ---------- │', string.rep('-', name_pad))
-  add('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_resolve, total_load, total_resolve+total_load)
-  add('%s │ ---------- │ ---------- │ ---------- │', string.rep('-', name_pad))
+  add('%-'..name_pad..'s │ Loader    │ Resolve    │ Load       │ Total      │', 'Module')
+  add('%s┼───────────┼────────────┼────────────┼────────────┤', string.rep('─', name_pad+1))
+  add('%-'..name_pad..'s │           │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_resolve, total_load, total_resolve+total_load)
+  add('%s┼───────────┼────────────┼────────────┼────────────┤', string.rep('─', name_pad+1))
   for _, p in pairs(profile_sorted) do
-    add('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', p.module, p.resolve, p.load, p.total)
+    add('%-'..name_pad..'s │ %9s │ %8.4fms │ %8.4fms │ %8.4fms │', p.module, p.loader, p.resolve, p.load, p.total)
   end
 
   local bufnr = api.nvim_create_buf(false, false)

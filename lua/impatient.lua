@@ -51,6 +51,7 @@ function M.enable_profile()
     M.profile['impatient'] = {
       resolve = 0,
       load    = impatient_dur,
+      loader  = 'standard'
     }
     require('impatient.profile').print_profile(M.profile)
   end
@@ -77,7 +78,7 @@ local function hrtime()
   end
 end
 
-local function load_package_with_cache(name)
+local function load_package_with_cache(name, loader)
   local resolve_start = hrtime()
 
   local basename = name:gsub('%.', '/')
@@ -92,7 +93,8 @@ local function load_package_with_cache(name)
       if M.profile then
         M.profile[name] = {
           resolve = load_start - resolve_start,
-          load    = hrtime() - load_start
+          load    = hrtime() - load_start,
+          loader  = loader or 'standard'
         }
       end
 
@@ -136,7 +138,7 @@ local function load_package_with_cache_reduced_rtp(name)
   set_option('eventignore', 'all')
   set_option('rtp', reduced_rtp)
 
-  local found = load_package_with_cache(name)
+  local found = load_package_with_cache(name, 'reduced')
 
   set_option('rtp', orig_rtp)
   set_option('eventignore', orig_ei)
@@ -166,7 +168,8 @@ local function load_from_cache(name)
   if M.profile then
     M.profile[name] = {
       resolve = load_start - resolve_start,
-      load    = hrtime() - load_start
+      load    = hrtime() - load_start,
+      loader  = 'cache'
     }
   end
 
