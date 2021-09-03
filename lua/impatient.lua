@@ -1,3 +1,5 @@
+local impatient_start = vim.loop.hrtime()
+local impatient_dur
 
 local M = {
   cache = {},
@@ -39,6 +41,10 @@ end
 function M.enable_profile()
   M.profile = {}
   M.print_profile = function()
+    M.profile['impatient'] = {
+      resolve = 0,
+      execute = impatient_dur,
+    }
     require('impatient.profile').print_profile(M.profile)
   end
   vim.cmd[[command LuaCacheProfile lua _G.__luacache.print_profile()]]
@@ -222,5 +228,7 @@ local function setup()
 end
 
 setup()
+
+impatient_dur = vim.loop.hrtime() - impatient_start
 
 return M
