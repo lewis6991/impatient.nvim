@@ -113,19 +113,20 @@ function M.update_reduced_rtp()
 end
 
 local function load_package_with_cache_reduced_rtp(name)
-  local orig_rtp = vim.o.rtp
+  local orig_rtp = vim.api.nvim_get_option('runtimepath')
+  local orig_ei  = vim.api.nvim_get_option('eventignore')
 
   if not reduced_rtp then
     M.update_reduced_rtp()
   end
 
-  -- vim.api.nvim_set_option('rtp', reduced_rtp)
-  vim.cmd('noautocmd set rtp='..vim.fn.fnameescape(reduced_rtp))
+  vim.api.nvim_set_option('eventignore', 'all')
+  vim.api.nvim_set_option('rtp', reduced_rtp)
 
   local found = load_package_with_cache(name)
 
-  -- vim.api.nvim_set_option('rtp', orig_rtp)
-  vim.cmd('noautocmd set rtp='..vim.fn.fnameescape(orig_rtp))
+  vim.api.nvim_set_option('rtp', orig_rtp)
+  vim.api.nvim_set_option('eventignore', orig_ei)
 
   return found
 end
