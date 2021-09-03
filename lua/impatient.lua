@@ -1,4 +1,11 @@
-local impatient_start = vim.loop.hrtime()
+local vim = vim
+local api = vim.api
+local uv = vim.loop
+
+local get_option, set_option = api.nvim_get_option, api.nvim_set_option
+local get_runtime_file = api.nvim_get_runtime_file
+
+local impatient_start = uv.hrtime()
 local impatient_dur
 
 local M = {
@@ -58,7 +65,7 @@ local function is_cacheable(path)
 end
 
 local function hash(modpath)
-  local stat = vim.loop.fs_stat(modpath)
+  local stat = uv.fs_stat(modpath)
   if stat then
     return stat.mtime.sec
   end
@@ -66,7 +73,7 @@ end
 
 local function hrtime()
   if M.profile then
-    return vim.loop.hrtime()
+    return uv.hrtime()
   end
 end
 
@@ -77,7 +84,7 @@ local function load_package_with_cache(name)
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
 
   for _, path in ipairs(paths) do
-    local modpath = vim.api.nvim_get_runtime_file(path, false)[1]
+    local modpath = get_runtime_file(path, false)[1]
     if modpath then
       local exec_start = hrtime()
       local chunk, err = loadfile(modpath)
@@ -109,7 +116,7 @@ local reduced_rtp
 
 -- Speed up non-cached loads by reducing the rtp path during requires
 function M.update_reduced_rtp()
-  local luadirs = vim.api.nvim_get_runtime_file('lua/', true)
+  local luadirs = get_runtime_file('lua/', true)
 
   for i = 1, #luadirs do
     luadirs[i] = luadirs[i]:sub(1, -6)
@@ -119,20 +126,20 @@ function M.update_reduced_rtp()
 end
 
 local function load_package_with_cache_reduced_rtp(name)
-  local orig_rtp = vim.api.nvim_get_option('runtimepath')
-  local orig_ei  = vim.api.nvim_get_option('eventignore')
+  local orig_rtp = get_option('runtimepath')
+  local orig_ei  = get_option('eventignore')
 
   if not reduced_rtp then
     M.update_reduced_rtp()
   end
 
-  vim.api.nvim_set_option('eventignore', 'all')
-  vim.api.nvim_set_option('rtp', reduced_rtp)
+  set_option('eventignore', 'all')
+  set_option('rtp', reduced_rtp)
 
   local found = load_package_with_cache(name)
 
-  vim.api.nvim_set_option('rtp', orig_rtp)
-  vim.api.nvim_set_option('eventignore', orig_ei)
+  set_option('rtp', orig_rtp)
+  set_option('eventignore', orig_ei)
 
   return found
 end
@@ -187,7 +194,7 @@ function M.clear_cache()
 end
 
 local function setup()
-  if vim.loop.fs_stat(M.path) then
+  if uv.fs_stat(M.path) then
     log('Loading cache file %s', M.path)
     local f = io.open(M.path, 'rb')
     local ok
@@ -203,17 +210,20 @@ local function setup()
     M.dirty = not ok
   end
 
+  local insert = table.insert
+  local package = package
+
   -- Fix the position of the preloader. This also makes loading modules like 'ffi'
   -- and 'bit' quicker
   if package.loaders[1] == vim._load_package then
     -- Move vim._load_package to the second position
     local vim_load = table.remove(package.loaders, 1)
-    table.insert(package.loaders, 2, vim_load)
+    insert(package.loaders, 2, vim_load)
   end
 
-  table.insert(package.loaders, 2, load_from_cache)
-  table.insert(package.loaders, 3, load_package_with_cache_reduced_rtp)
-  table.insert(package.loaders, 4, load_package_with_cache)
+  insert(package.loaders, 2, load_from_cache)
+  insert(package.loaders, 3, load_package_with_cache_reduced_rtp)
+  insert(package.loaders, 4, load_package_with_cache)
 
   vim.cmd[[
     augroup impatient
@@ -229,6 +239,6 @@ end
 
 setup()
 
-impatient_dur = vim.loop.hrtime() - impatient_start
+impatient_dur = uv.hrtime() - impatient_start
 
 return M
