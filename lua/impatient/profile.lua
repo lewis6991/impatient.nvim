@@ -40,7 +40,7 @@ function M.print_profile(profile)
     printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', p.module, p.resolve, p.load, p.total)
   end
   printf('%s │ ---------- │ ---------- │ ---------- │', string.rep('-', name_pad))
-  printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_load, total_load, total_load+total_load)
+  printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_resolve, total_load, total_resolve+total_load)
 
 end
 
