@@ -10,23 +10,23 @@ function M.print_profile(profile)
     return
   end
 
+  local total_resolve = 0
   local total_load = 0
-  local total_exec = 0
 
   local profile_sorted = {}
 
   local name_pad = 0
   for k, p in pairs(profile) do
     p.resolve = p.resolve / 1000000
-    p.execute = p.execute / 1000000
+    p.load    = p.load / 1000000
 
-    total_load = total_load + p.resolve
-    total_exec = total_exec + p.execute
+    total_resolve = total_resolve + p.resolve
+    total_load = total_load + p.load
     p.module = k
     if #k > name_pad then
       name_pad = #k
     end
-    p.total = p.resolve + p.execute
+    p.total = p.resolve + p.load
     profile_sorted[#profile_sorted+1] = p
   end
 
@@ -34,13 +34,13 @@ function M.print_profile(profile)
     return a.total > b.total
   end)
 
-  printf('%-'..name_pad..'s │ Resolve    │ Execute    │ Total      │', 'Module')
+  printf('%-'..name_pad..'s │ Resolve    │ Load       │ Total      │', 'Module')
   printf('%s │ ---------- │ ---------- │ ---------- │', string.rep('-', name_pad))
   for _, p in pairs(profile_sorted) do
-    printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', p.module, p.resolve, p.execute, p.total)
+    printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', p.module, p.resolve, p.load, p.total)
   end
   printf('%s │ ---------- │ ---------- │ ---------- │', string.rep('-', name_pad))
-  printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_load, total_exec, total_load+total_exec)
+  printf('%-'..name_pad..'s │ %8.4fms │ %8.4fms │ %8.4fms │', 'Total', total_load, total_load, total_load+total_load)
 
 end
 

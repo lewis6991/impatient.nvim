@@ -50,7 +50,7 @@ function M.enable_profile()
   M.print_profile = function()
     M.profile['impatient'] = {
       resolve = 0,
-      execute = impatient_dur,
+      load    = impatient_dur,
     }
     require('impatient.profile').print_profile(M.profile)
   end
@@ -86,13 +86,13 @@ local function load_package_with_cache(name)
   for _, path in ipairs(paths) do
     local modpath = get_runtime_file(path, false)[1]
     if modpath then
-      local exec_start = hrtime()
+      local load_start = hrtime()
       local chunk, err = loadfile(modpath)
 
       if M.profile then
         M.profile[name] = {
-          resolve = exec_start - resolve_start,
-          execute = hrtime() - exec_start
+          resolve = load_start - resolve_start,
+          load    = hrtime() - load_start
         }
       end
 
@@ -160,13 +160,13 @@ local function load_from_cache(name)
     return 'Stale cache'
   end
 
-  local exec_start = hrtime()
+  local load_start = hrtime()
   local chunk = loadstring(codes)
 
   if M.profile then
     M.profile[name] = {
-      resolve = exec_start - resolve_start,
-      execute = hrtime() - exec_start
+      resolve = load_start - resolve_start,
+      load    = hrtime() - load_start
     }
   end
 
