@@ -54,7 +54,7 @@ function M.enable_profile()
     }
     require('impatient.profile').print_profile(M.profile)
   end
-  vim.cmd[[command LuaCacheProfile lua _G.__luacache.print_profile()]]
+  vim.cmd[[command! LuaCacheProfile lua _G.__luacache.print_profile()]]
 end
 
 local function is_cacheable(path)
@@ -231,8 +231,8 @@ local function setup()
       autocmd OptionSet runtimepath lua _G.__luacache.update_reduced_rtp(true)
     augroup END
 
-    command LuaCacheClear lua _G.__luacache.clear_cache()
-    command LuaCacheLog   lua _G.__luacache.print_log()
+    command! LuaCacheClear lua _G.__luacache.clear_cache()
+    command! LuaCacheLog   lua _G.__luacache.print_log()
   ]]
 
 end
