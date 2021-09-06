@@ -13,9 +13,11 @@ local M = {
   profile = nil,
   dirty = false,
   path = vim.fn.stdpath('cache')..'/luacache',
-  use_cachepack = true,
+  used_mpack = true,
   log = {}
 }
+
+_G.use_cachepack = _G.use_cachepack ~= false
 
 _G.__luacache = M
 
@@ -34,7 +36,7 @@ local function load_mpack()
   return require('mpack')
 end
 
-local mpack = (M.use_cachepack and require('impatient.cachepack')) or load_mpack()
+local mpack = (_G.use_cachepack and require('impatient.cachepack')) or load_mpack()
 
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')

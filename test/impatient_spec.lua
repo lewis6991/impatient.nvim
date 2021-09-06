@@ -133,14 +133,15 @@ describe('impatient', function()
 
     it('using mpack', function()
       os.execute[[rm -rf scratch/cache]]
+      exec_lua("_G.use_cachepack = false")
       exec_lua([[require('impatient')]])
       local cachefile = exec_lua("return _G.__luacache.path")
-      exec_lua("_G.__luacache.use_cachepack = false")
 
       exec_lua([[require('plugins')]])
       exec_lua("_G.__luacache.save_cache()")
 
       eq(exp1, exec_lua("return _G.__luacache.log"))
+      eq(true, exec_lua("return _G.__luacache.used_mpack"))
     end)
 
     it('using cachepack', function()
@@ -152,14 +153,15 @@ describe('impatient', function()
       exec_lua("_G.__luacache.save_cache()")
 
       eq(exp1, exec_lua("return _G.__luacache.log"))
+      eq(false, exec_lua("return _G.__luacache.used_mpack"))
     end)
   end)
 
   describe('run with cache', function()
     it('using mpack', function()
+      exec_lua("_G.use_cachepack = false")
       exec_lua([[require('impatient')]])
       local cachefile = exec_lua("return _G.__luacache.path")
-      exec_lua("_G.__luacache.use_cachepack = false")
       exec_lua([[require('plugins')]])
 
       exec_lua("_G.__luacache.save_cache()")
@@ -169,6 +171,7 @@ describe('impatient', function()
       },
         exec_lua("return _G.__luacache.log")
       )
+      eq(true, exec_lua("return _G.__luacache.used_mpack"))
     end)
 
     it('using cachepack', function()
@@ -183,6 +186,7 @@ describe('impatient', function()
       },
         exec_lua("return _G.__luacache.log")
       )
+      eq(false, exec_lua("return _G.__luacache.used_mpack"))
     end)
   end)
 
