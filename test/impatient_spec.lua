@@ -17,13 +17,7 @@ describe('impatient', function()
     exec_lua([[require('plugins')]])
   end)
 
-  it('run without cache', function()
-    os.execute[[rm -rf scratch/cache]]
-    exec_lua([[require('impatient')]])
-    local cachefile = exec_lua("return _G.__luacache.path")
-
-    exec_lua([[require('plugins')]])
-    exec_lua("_G.__luacache.save_cache()")
+  describe('run without cache', function()
     local nvim05 = exec_lua('return vim.version().minor') == 5
     local exp = {
       'No cache for module plugins',
@@ -133,25 +127,63 @@ describe('impatient', function()
 
     -- Realign table
     local exp1 = {}
-    for k, v in pairs(exp) do
+    for _, v in pairs(exp) do
       exp1[#exp1+1] = v
     end
 
-    eq(exp1, exec_lua("return _G.__luacache.log"))
+    it('using mpack', function()
+      os.execute[[rm -rf scratch/cache]]
+      exec_lua([[require('impatient')]])
+      local cachefile = exec_lua("return _G.__luacache.path")
+      exec_lua("_G.__luacache.use_cachepack = false")
+
+      exec_lua([[require('plugins')]])
+      exec_lua("_G.__luacache.save_cache()")
+
+      eq(exp1, exec_lua("return _G.__luacache.log"))
+    end)
+
+    it('using cachepack', function()
+      os.execute[[rm -rf scratch/cache]]
+      exec_lua([[require('impatient')]])
+      local cachefile = exec_lua("return _G.__luacache.path")
+
+      exec_lua([[require('plugins')]])
+      exec_lua("_G.__luacache.save_cache()")
+
+      eq(exp1, exec_lua("return _G.__luacache.log"))
+    end)
   end)
 
-  it('run with cache', function()
-    exec_lua([[require('impatient')]])
-    local cachefile = exec_lua("return _G.__luacache.path")
-    exec_lua([[require('plugins')]])
+  describe('run with cache', function()
+    it('using mpack', function()
+      exec_lua([[require('impatient')]])
+      local cachefile = exec_lua("return _G.__luacache.path")
+      exec_lua("_G.__luacache.use_cachepack = false")
+      exec_lua([[require('plugins')]])
 
-    exec_lua("_G.__luacache.save_cache()")
+      exec_lua("_G.__luacache.save_cache()")
 
-    eq({
-      'Loading cache file scratch/cache/nvim/luacache',
-    },
-      exec_lua("return _G.__luacache.log")
-    )
+      eq({
+        'Loading cache file scratch/cache/nvim/luacache',
+      },
+        exec_lua("return _G.__luacache.log")
+      )
+    end)
+
+    it('using cachepack', function()
+      exec_lua([[require('impatient')]])
+      local cachefile = exec_lua("return _G.__luacache.path")
+      exec_lua([[require('plugins')]])
+
+      exec_lua("_G.__luacache.save_cache()")
+
+      eq({
+        'Loading cache file scratch/cache/nvim/luacache',
+      },
+        exec_lua("return _G.__luacache.log")
+      )
+    end)
   end)
 
 end)

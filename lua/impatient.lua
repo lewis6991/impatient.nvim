@@ -2,8 +2,6 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
-local use_cachepack = true
-
 local get_option, set_option = api.nvim_get_option, api.nvim_set_option
 local get_runtime_file = api.nvim_get_runtime_file
 
@@ -15,6 +13,7 @@ local M = {
   profile = nil,
   dirty = false,
   path = vim.fn.stdpath('cache')..'/luacache',
+  use_cachepack = true,
   log = {}
 }
 
@@ -35,7 +34,7 @@ local function load_mpack()
   return require('mpack')
 end
 
-local mpack = (use_cachepack and require('impatient.cachepack')) or load_mpack()
+local mpack = (M.use_cachepack and require('impatient.cachepack')) or load_mpack()
 
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
