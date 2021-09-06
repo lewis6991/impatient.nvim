@@ -16,6 +16,8 @@ local M = {
   log = {}
 }
 
+_G.use_cachepack = _G.use_cachepack ~= false
+
 _G.__luacache = M
 
 local function load_mpack()
@@ -33,7 +35,7 @@ local function load_mpack()
   return require('mpack')
 end
 
-local mpack = load_mpack()
+local mpack = (_G.use_cachepack and require('impatient.cachepack')) or load_mpack()
 
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
@@ -186,7 +188,9 @@ end
 function M.save_cache()
   if M.dirty then
     log('Updating cache file: %s', M.path)
-    io.open(M.path, 'wb'):write(mpack.pack(M.cache))
+    local f = io.open(M.path, 'w+b')
+    f:write(mpack.pack(M.cache))
+    f:flush()
     M.dirty = false
   end
 end

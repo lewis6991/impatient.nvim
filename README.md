@@ -18,8 +18,6 @@ This plugin does several things to speed up `require` in Lua.
 
 This is done by using `loadstring` to compile the Lua modules to bytecode and stores them in a cache file. This also has the benefit of avoiding Neovim's expensive module loader which uses `nvim_get_runtime_file()`. The cache is invalidated using the modified time of each modules file path.
 
-**Note**: [mpack](https://luarocks.org/modules/tarruda/mpack) is required for reading and writing of the cache file. Regular Neovim builds will have this built in, however if your build hasn't then you should be able to install it via [packer](https://github.com/wbthomason/packer.nvim), see installation details below.
-
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache`.
 
 ### Reduces `runtimepath` during `require`
@@ -37,14 +35,6 @@ Neovim currently places its own loader for searching runtime files at the front 
 -- Is using a standard Neovim install, i.e. built from source or using a
 -- provided appimage.
 use 'lewis6991/impatient.nvim'
-
--- If your Neovim install doesn't include mpack, e.g. if installed via
--- Homebrew, then you need to also install mpack from luarocks.
--- There is an existing issue with luarocks on macOS where `luarocks install` is using a different version of lua.
--- @see: https://github.com/wbthomason/packer.nvim/issues/180
--- Make sure to add this on top of your plugins.lua to resolve this
-vim.fn.setenv("MACOSX_DEPLOYMENT_TARGET", "10.15")
-use {'lewis6991/impatient.nvim', rocks = 'mpack'}
 ```
 
 ## Setup
