@@ -158,7 +158,24 @@ describe('impatient', function()
   end)
 
   describe('run with cache', function()
+    -- don't depend on state from prior tests
+    local function refresh_cache()
+      os.execute[[rm -rf scratch/cache]]
+      exec_lua([[require('impatient')]])
+      local cachefile = exec_lua("return _G.__luacache.path")
+      exec_lua([[require('plugins')]])
+      exec_lua("_G.__luacache.save_cache()")
+
+      clear()
+      cmd [[set runtimepath=$VIMRUNTIME,.,./test]]
+      cmd [[let $XDG_CACHE_HOME='scratch/cache']]
+      cmd [[set packpath=]]
+    end
+
     it('using mpack', function()
+      exec_lua("_G.use_cachepack = false")
+      refresh_cache()
+
       exec_lua("_G.use_cachepack = false")
       exec_lua([[require('impatient')]])
       local cachefile = exec_lua("return _G.__luacache.path")
@@ -175,6 +192,8 @@ describe('impatient', function()
     end)
 
     it('using cachepack', function()
+      refresh_cache()
+
       exec_lua([[require('impatient')]])
       local cachefile = exec_lua("return _G.__luacache.path")
       exec_lua([[require('plugins')]])
