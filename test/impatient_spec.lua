@@ -3,7 +3,12 @@ local helpers = require('test.functional.helpers')()
 local clear    = helpers.clear
 local exec_lua = helpers.exec_lua
 local eq       = helpers.eq
+local ok       = helpers.ok
 local cmd      = helpers.command
+
+local function module_loaded(mod)
+  return exec_lua("return _G.package.loaded['"..mod.."'] ~= nil")
+end
 
 describe('impatient', function()
   before_each(function()
@@ -141,7 +146,8 @@ describe('impatient', function()
       exec_lua("_G.__luacache.save_cache()")
 
       eq(exp1, exec_lua("return _G.__luacache.log"))
-      eq(true, exec_lua("return _G.__luacache.used_mpack"))
+      ok(module_loaded('mpack'))
+      ok(not module_loaded('impatient.cachepack'))
     end)
 
     it('creates cache using cachepack', function()
@@ -153,7 +159,8 @@ describe('impatient', function()
       exec_lua("_G.__luacache.save_cache()")
 
       eq(exp1, exec_lua("return _G.__luacache.log"))
-      eq(false, exec_lua("return _G.__luacache.used_mpack"))
+      ok(not module_loaded('mpack'))
+      ok(module_loaded('impatient.cachepack'))
     end)
   end)
 
@@ -191,7 +198,8 @@ describe('impatient', function()
         },
           exec_lua("return _G.__luacache.log")
         )
-        eq(true, exec_lua("return _G.__luacache.used_mpack"))
+        ok(module_loaded('mpack'))
+        ok(not module_loaded('impatient.cachepack'))
       end)
     end)
 
@@ -213,7 +221,8 @@ describe('impatient', function()
         },
           exec_lua("return _G.__luacache.log")
         )
-        eq(false, exec_lua("return _G.__luacache.used_mpack"))
+        ok(not module_loaded('mpack'))
+        ok(module_loaded('impatient.cachepack'))
       end)
     end)
   end)

@@ -49,7 +49,6 @@ function InputBuffer.read_string(buf)
 end
 
 function M.pack(cache)
-  _G.__luacache.used_mpack = false
   local total_keys = vim.tbl_count(cache)
   local buf = OutputBuffer.create()
 
@@ -65,7 +64,6 @@ function M.pack(cache)
 end
 
 function M.unpack(str)
-  _G.__luacache.used_mpack = false
   if str == nil or #str == 0 then
     return {}
   end

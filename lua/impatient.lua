@@ -13,7 +13,6 @@ local M = {
   profile = nil,
   dirty = false,
   path = vim.fn.stdpath('cache')..'/luacache',
-  used_mpack = true,
   log = {}
 }
 
