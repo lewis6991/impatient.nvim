@@ -1,6 +1,6 @@
 
 local init = {
-  ['neovim/nvim-lspconfig']       = 'cbd7c915',
+  ['neovim/nvim-lspconfig']       = '2f026f21',
   ['nvim-lua/plenary.nvim']       = '06266e7b',
   ['nvim-lua/telescope.nvim']     = 'ac42f0c2',
   ['lewis6991/gitsigns.nvim']     = 'daa233aa',
