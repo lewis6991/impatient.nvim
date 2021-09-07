@@ -15,7 +15,7 @@ local function write_string(buf, str)
   buf[#buf+1] = str
 end
 
-function create_input_buffer(str)
+local function create_input_buffer(str)
   return {
     ptr = ffi.new("const char[?]", #str, str),
     pos = 0,
@@ -23,14 +23,14 @@ function create_input_buffer(str)
   }
 end
 
-function read_number(buf)
+local function read_number(buf)
   if (buf.size < buf.pos) then error("buffer access violation") end
   local res = ffi.cast("double*", buf.ptr + buf.pos)[0]
   buf.pos = buf.pos + sizeof_c_double
   return res
 end
 
-function read_string(buf)
+local function read_string(buf)
   local len = read_number(buf)
   local res = ffi.string(buf.ptr + buf.pos, len)
   buf.pos = buf.pos + len
