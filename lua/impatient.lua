@@ -145,22 +145,21 @@ local function hrtime()
   end
 end
 
-local function modpath_pack(modpath)
-      local appdir = os.getenv('APPDIR')
-      if appdir ~= nil then
-        modpath = modpath:gsub(appdir, '/appimage')
-      end
-      return modpath
+local appdir = os.getenv('APPDIR')
+
+local function modpath_mangle(modpath)
+  if appdir then
+    modpath = modpath:gsub(appdir, '/$APPDIR')
+  end
+  return modpath
 end
 
-local function modpath_unpack(modpath)
-      local appdir = os.getenv('APPDIR')
-      if appdir ~= nil then
-        modpath = modpath:gsub('/appimage', appdir)
-      end
-      return modpath
+local function modpath_unmangle(modpath)
+  if appdir then
+    modpath = modpath:gsub('/$APPDIR', appdir)
+  end
+  return modpath
 end
-
 
 local function load_package_with_cache(name, loader)
   local resolve_start = hrtime()
@@ -185,7 +184,7 @@ local function load_package_with_cache(name, loader)
       if chunk == nil then return err end
 
       log('Creating cache for module %s', name)
-      M.cache[name] = {modpath_pack(modpath), hash(modpath), string.dump(chunk)}
+      M.cache[name] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
       M.dirty = true
 
       return chunk
@@ -235,7 +234,7 @@ local function load_from_cache(name)
 
   local modpath, mhash, codes = unpack(M.cache[name])
 
-  if mhash ~= hash(modpath_unpack(modpath)) then
+  if mhash ~= hash(modpath_unmangle(modpath)) then
     log('Stale cache for module %s', name)
     M.cache[name] = nil
     M.dirty = true
