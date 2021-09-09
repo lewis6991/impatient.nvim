@@ -132,13 +132,6 @@ function M.enable_profile()
   vim.cmd[[command! LuaCacheProfile lua _G.__luacache.print_profile()]]
 end
 
-local function is_cacheable(path)
-  -- Don't cache files in /tmp since they are not likely to persist.
-  -- Note: Appimage versions of Neovim mount $VIMRUNTIME in /tmp in a unique
-  -- directory on each launch.
-  return not vim.startswith(path, '/tmp/')
-end
-
 local function hash(modpath)
   local stat = uv.fs_stat(modpath)
   if stat then
@@ -151,6 +144,23 @@ local function hrtime()
     return uv.hrtime()
   end
 end
+
+local function modpath_pack(modpath)
+      local appdir = os.getenv('APPDIR')
+      if appdir ~= nil then
+        modpath = modpath:gsub(appdir, '/appimage')
+      end
+      return modpath
+end
+
+local function modpath_unpack(modpath)
+      local appdir = os.getenv('APPDIR')
+      if appdir ~= nil then
+        modpath = modpath:gsub('/appimage', appdir)
+      end
+      return modpath
+end
+
 
 local function load_package_with_cache(name, loader)
   local resolve_start = hrtime()
@@ -174,13 +184,9 @@ local function load_package_with_cache(name, loader)
 
       if chunk == nil then return err end
 
-      if is_cacheable(modpath) then
-        log('Creating cache for module %s', name)
-        M.cache[name] = {modpath, hash(modpath), string.dump(chunk)}
-        M.dirty = true
-      else
-        log('Unable to cache module %s', name)
-      end
+      log('Creating cache for module %s', name)
+      M.cache[name] = {modpath_pack(modpath), hash(modpath), string.dump(chunk)}
+      M.dirty = true
 
       return chunk
     end
@@ -229,7 +235,7 @@ local function load_from_cache(name)
 
   local modpath, mhash, codes = unpack(M.cache[name])
 
-  if mhash ~= hash(modpath) then
+  if mhash ~= hash(modpath_unpack(modpath)) then
     log('Stale cache for module %s', name)
     M.cache[name] = nil
     M.dirty = true
