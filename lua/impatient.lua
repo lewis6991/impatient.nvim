@@ -118,6 +118,24 @@ local function load_package_with_cache(name, loader)
       return chunk
     end
   end
+
+  -- Copied from neovim/src/nvim/lua/vim.lua
+  for _, trail in ipairs(vim._so_trails) do
+    local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
+    local found = vim.api.nvim_get_runtime_file(path, false)
+    if #found > 0 then
+      -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
+      -- a) strip prefix up to and including the first dash, if any
+      -- b) replace all dots by underscores
+      -- c) prepend "luaopen_"
+      -- So "foo-bar.baz" should result in "luaopen_bar_baz"
+      local dash = name:find("-", 1, true)
+      local modname = dash and name:sub(dash + 1) or name
+      local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
+      return f or error(err)
+    end
+  end
+
   return nil
 end
 
@@ -210,6 +228,21 @@ function M.clear_cache()
   os.remove(M.path)
 end
 
+-- -- run a crude hash on vim._load_package to make sure it hasn't changed.
+-- local function verify_vim_loader()
+--   local expected_sig = 31172
+
+--   local dump = {string.byte(string.dump(vim._load_package), 1, -1)}
+--   local actual_sig = #dump
+--   for i = 1, #dump do
+--     actual_sig = actual_sig + dump[i]
+--   end
+
+--   if actual_sig ~= expected_sig then
+--     print(string.format('warning: vim._load_package has an unexpected value, impatient might not behave properly (%d)', actual_sig))
+--   end
+-- end
+
 local function setup()
   if uv.fs_stat(M.path) then
     log('Loading cache file %s', M.path)
@@ -230,17 +263,17 @@ local function setup()
   local insert = table.insert
   local package = package
 
+  -- verify_vim_loader()
+
   -- Fix the position of the preloader. This also makes loading modules like 'ffi'
   -- and 'bit' quicker
   if package.loaders[1] == vim._load_package then
-    -- Move vim._load_package to the second position
-    local vim_load = table.remove(package.loaders, 1)
-    insert(package.loaders, 2, vim_load)
+    -- Remove vim._load_package and replace with our version
+    table.remove(package.loaders, 1)
   end
 
   insert(package.loaders, 2, load_from_cache)
   insert(package.loaders, 3, load_package_with_cache_reduced_rtp)
-  insert(package.loaders, 4, load_package_with_cache)
 
   vim.cmd[[
     augroup impatient

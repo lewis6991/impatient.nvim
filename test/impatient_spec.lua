@@ -3,7 +3,6 @@ local helpers = require('test.functional.helpers')()
 local clear    = helpers.clear
 local exec_lua = helpers.exec_lua
 local eq       = helpers.eq
-local ok       = helpers.ok
 local cmd      = helpers.command
 
 local gen_exp = function(use_cachepack)
@@ -124,11 +123,15 @@ local gen_exp = function(use_cachepack)
 end
 
 describe('impatient', function()
-  before_each(function()
+  local function reset()
     clear()
     cmd [[set runtimepath=$VIMRUNTIME,.,./test]]
     cmd [[let $XDG_CACHE_HOME='scratch/cache']]
     cmd [[set packpath=]]
+  end
+
+  before_each(function()
+    reset()
   end)
 
   it('load plugins without impatient', function()
@@ -157,7 +160,7 @@ describe('impatient', function()
       eq({ 'Loading cache file scratch/cache/nvim/luacache' },
         exec_lua("return _G.__luacache.log"))
 
-      ok(use_cachepack == exec_lua("return _G.package.loaded['impatient.cachepack'] ~= nil"))
+      assert(use_cachepack == exec_lua("return _G.package.loaded['impatient.cachepack'] ~= nil"))
     end)
   end
 
@@ -167,6 +170,35 @@ describe('impatient', function()
 
   describe('using cachepack', function()
     tests(true)
+  end)
+
+  it('shouldn\'t be slow when loading missing modules', function()
+    os.execute[[rm -rf scratch/cache]]
+
+    local total_vim_load_dur = 0
+    local total_imp_load_dur = 0
+
+    local function load_no_exist_mod()
+      return exec_lua[[
+        local a = vim.loop.hrtime()
+        pcall(require, 'does.not.exist')
+        return (vim.loop.hrtime() - a)/1e6
+      ]]
+    end
+
+    for _ = 1, 20 do
+      reset()
+      local vim_load_dur = load_no_exist_mod()
+      total_vim_load_dur = total_vim_load_dur + vim_load_dur
+      exec_lua[[require('impatient')]]
+      local imp_load_dur = load_no_exist_mod()
+      total_imp_load_dur = total_imp_load_dur + imp_load_dur
+    end
+
+    local threshold = 1.2 * total_vim_load_dur
+
+    assert(total_imp_load_dur < threshold,
+      string.format('%f > %f', total_imp_load_dur, threshold))
   end)
 
 end)
