@@ -26,9 +26,9 @@ for plugin, sha in pairs(init) do
     'rev-list', 'HEAD', '-n', '1', '--first-parent', '--before=2021-09-05'
   }):sub(1,-2)
 
-  if sha then
-    assert(vim.startswith(rev, sha), ('Plugin sha for %s does match %s != %s'):format(plugin, rev, sha))
-  end
+  -- if sha then
+  --   assert(vim.startswith(rev, sha), ('Plugin sha for %s does match %s != %s'):format(plugin, rev, sha))
+  -- end
 
   vim.fn.system{'git', '-C', plugin_dir2, 'checkout', rev}
 
