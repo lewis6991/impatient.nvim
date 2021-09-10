@@ -921,6 +921,12 @@ Cache load: 3.414473ms
 
 Total resolve: 2.122016ms, total load: 4.539859ms
 
+## Relevent Neovim PR's
+
+[libs: vendor libmpack and libmpack-lua](https://github.com/neovim/neovim/pull/15566) [merged]
+
+[feat(lua): startup profiling](https://github.com/neovim/neovim/pull/15436)
+
 
 ## Credit
 
