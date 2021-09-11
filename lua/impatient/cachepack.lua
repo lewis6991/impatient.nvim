@@ -1,8 +1,18 @@
 local ffi = require('ffi')
 
 -- using double for packing/unpacking numbers has no conversion overhead
-local sizeof_c_double = ffi.sizeof("double")
-local c_double = ffi.typeof("double[1]")
+if vim.loop.os_uname().machine ~= "x86_64" then
+  ffi.cdef [[
+    typedef int buffer_t;
+  ]]
+else
+  ffi.cdef [[
+    typedef double buffer_t;
+  ]]
+end
+
+local c_buffer_type = ffi.typeof "buffer_t[1]"
+local c_sizeof_buffer_type = ffi.sizeof "buffer_t"
 
 local CachePack = {}
 
@@ -10,7 +20,7 @@ function CachePack.pack(cache)
   local buf = {}
 
   local function write_number(num)
-    buf[#buf+1] = ffi.string(c_double(num), sizeof_c_double)
+    buf[#buf+1] = ffi.string(c_buffer_type(num), c_sizeof_buffer_type)
   end
 
   local function write_string(str)
@@ -43,8 +53,8 @@ function CachePack.unpack(str)
     if (buf_pos > #str) then
       error("buffer access violation")
     end
-    local res = ffi.cast("double*", buf + buf_pos)[0]
-    buf_pos = buf_pos + sizeof_c_double
+    local res = ffi.cast("buffer_t*", buf + buf_pos)[0]
+    buf_pos = buf_pos + c_sizeof_buffer_type
     return res
   end
 
