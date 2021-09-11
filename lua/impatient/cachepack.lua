@@ -1,7 +1,7 @@
 local ffi = require('ffi')
 
 -- using double for packing/unpacking numbers has no conversion overhead
-if vim.loop.os_uname().machine ~= "x86_64" then
+if jit.arch == "arm" then
   ffi.cdef [[
     typedef int buffer_t;
   ]]
