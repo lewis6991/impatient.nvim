@@ -9,8 +9,10 @@ local gen_exp = function(use_cachepack)
   local nvim05 = exec_lua('return vim.version().minor') == 5
   local exp = {
     'No cache for module plugins',
+    'Updating reduced rtp',
     'Creating cache for module plugins',
     'No cache for module telescope',
+    'Updating reduced rtp',
     'Creating cache for module telescope',
     'No cache for module telescope._extensions',
     'Creating cache for module telescope._extensions',
@@ -195,7 +197,7 @@ describe('impatient', function()
       total_imp_load_dur = total_imp_load_dur + imp_load_dur
     end
 
-    local threshold = 1.2 * total_vim_load_dur
+    local threshold = 1.4 * total_vim_load_dur
 
     assert(total_imp_load_dur < threshold,
       string.format('%f > %f', total_imp_load_dur, threshold))
