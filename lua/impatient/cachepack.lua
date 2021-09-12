@@ -1,18 +1,12 @@
 local ffi = require('ffi')
 
 -- using double for packing/unpacking numbers has no conversion overhead
-if jit.arch == "arm" then
-  ffi.cdef [[
-    typedef int buffer_t;
-  ]]
-else
-  ffi.cdef [[
-    typedef double buffer_t;
-  ]]
-end
+-- 32-bit ARM causes a bus error when casting to double, so use int there
+local number_t = jit.arch ~= "arm" and "double" or "int"
+ffi.cdef("typedef " .. number_t .. " number_t;")
 
-local c_buffer_type = ffi.typeof "buffer_t[1]"
-local c_sizeof_buffer_type = ffi.sizeof "buffer_t"
+local c_number_t = ffi.typeof "number_t[1]"
+local c_sizeof_number_t = ffi.sizeof "number_t"
 
 local CachePack = {}
 
@@ -20,7 +14,7 @@ function CachePack.pack(cache)
   local buf = {}
 
   local function write_number(num)
-    buf[#buf+1] = ffi.string(c_buffer_type(num), c_sizeof_buffer_type)
+    buf[#buf+1] = ffi.string(c_number_t(num), c_sizeof_number_t)
   end
 
   local function write_string(str)
@@ -54,7 +48,7 @@ function CachePack.unpack(str)
       error("buffer access violation")
     end
     local res = ffi.cast("buffer_t*", buf + buf_pos)[0]
-    buf_pos = buf_pos + c_sizeof_buffer_type
+    buf_pos = buf_pos + c_sizeof_number_t
     return res
   end
 
