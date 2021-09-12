@@ -140,9 +140,10 @@ local function load_package_with_cache(name, loader)
 end
 
 local reduced_rtp
+local rtp
 
 -- Speed up non-cached loads by reducing the rtp path during requires
-function M.update_reduced_rtp()
+local function update_reduced_rtp()
   local luadirs = get_runtime_file('lua/', true)
 
   for i = 1, #luadirs do
@@ -161,8 +162,10 @@ local function load_package_with_cache_reduced_rtp(name)
   local orig_rtp = get_option('runtimepath')
   local orig_ei  = get_option('eventignore')
 
-  if not reduced_rtp then
-    M.update_reduced_rtp()
+  if orig_rtp ~= rtp then
+    log('Updating reduced rtp')
+    rtp = orig_rtp
+    update_reduced_rtp()
   end
 
   set_option('eventignore', 'all')
@@ -278,7 +281,6 @@ local function setup()
   vim.cmd[[
     augroup impatient
       autocmd VimEnter,VimLeave * lua _G.__luacache.save_cache()
-      autocmd OptionSet runtimepath lua _G.__luacache.update_reduced_rtp(true)
     augroup END
 
     command! LuaCacheClear lua _G.__luacache.clear_cache()
