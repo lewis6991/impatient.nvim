@@ -47,7 +47,7 @@ function CachePack.unpack(str)
     if (buf_pos > #str) then
       error("buffer access violation")
     end
-    local res = ffi.cast("buffer_t*", buf + buf_pos)[0]
+    local res = ffi.cast("number_t*", buf + buf_pos)[0]
     buf_pos = buf_pos + c_sizeof_number_t
     return res
   end
