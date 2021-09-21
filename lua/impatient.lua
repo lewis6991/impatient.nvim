@@ -48,15 +48,21 @@ function M.print_log()
 end
 
 function M.enable_profile()
+  local ip = require('impatient.profile')
+
   M.profile = {}
+  ip.mod_require(M.profile)
+
   M.print_profile = function()
     M.profile['impatient'] = {
       resolve = 0,
-      load    = impatient_dur,
+      load    = 0,
+      exec    = impatient_dur,
       loader  = 'standard'
     }
-    require('impatient.profile').print_profile(M.profile)
+    ip.print_profile(M.profile)
   end
+
   vim.cmd[[command! LuaCacheProfile lua _G.__luacache.print_profile()]]
 end
 
@@ -102,17 +108,16 @@ local function load_package_with_cache(name, loader)
       local chunk, err = loadfile(modpath)
 
       if M.profile then
-        M.profile[name] = {
-          resolve = load_start - resolve_start,
-          load    = hrtime() - load_start,
-          loader  = loader or 'standard'
-        }
+        local mp = M.profile
+        mp[basename].resolve = load_start - resolve_start
+        mp[basename].load    = hrtime() - load_start
+        mp[basename].loader  = loader or 'standard'
       end
 
       if chunk == nil then return err end
 
-      log('Creating cache for module %s', name)
-      M.cache[name] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
+      log('Creating cache for module %s', basename)
+      M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
       M.dirty = true
 
       return chunk
@@ -180,17 +185,19 @@ local function load_package_with_cache_reduced_rtp(name)
 end
 
 local function load_from_cache(name)
+  local basename = name:gsub('%.', '/')
+
   local resolve_start = hrtime()
-  if M.cache[name] == nil then
-    log('No cache for module %s', name)
+  if M.cache[basename] == nil then
+    log('No cache for module %s', basename)
     return 'No cache entry'
   end
 
-  local modpath, mhash, codes = unpack(M.cache[name])
+  local modpath, mhash, codes = unpack(M.cache[basename])
 
   if mhash ~= hash(modpath_unmangle(modpath)) then
-    log('Stale cache for module %s', name)
-    M.cache[name] = nil
+    log('Stale cache for module %s', basename)
+    M.cache[basename] = nil
     M.dirty = true
     return 'Stale cache'
   end
@@ -199,17 +206,16 @@ local function load_from_cache(name)
   local chunk = loadstring(codes)
 
   if M.profile then
-    M.profile[name] = {
-      resolve = load_start - resolve_start,
-      load    = hrtime() - load_start,
-      loader  = 'cache'
-    }
+    local mp = M.profile
+    mp[basename].resolve = load_start - resolve_start
+    mp[basename].load    = hrtime() - load_start
+    mp[basename].loader  = 'cache'
   end
 
   if not chunk then
-    M.cache[name] = nil
+    M.cache[basename] = nil
     M.dirty = true
-    log('Error loading cache for module. Invalidating', name)
+    log('Error loading cache for module. Invalidating', basename)
     return 'Cache error'
   end
 
