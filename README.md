@@ -37,6 +37,20 @@ Neovim currently places its own loader for searching runtime files at the front 
 use 'lewis6991/impatient.nvim'
 ```
 
+You may also want Packers generated compiled file to be cached by Impatient too. To enable this:
+
+```lua
+packer.startup{{...},
+  config = {
+    -- Move to lua dir so impatient.nvim can cache it
+    compile_path = vim.fn.stdpath('config')..'/lua/packer_compiled.lua'
+  }
+}
+
+```
+
+Then make sure to add `require('packer_compiled')` somewhere in your config.
+
 ## Setup
 
 impatient needs to be setup before any other lua plugin is loaded so it is recommended you add the following near the start of your `init.vim`.
