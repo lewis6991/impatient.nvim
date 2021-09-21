@@ -5,6 +5,7 @@ local uv = vim.loop
 local get_option, set_option = api.nvim_get_option, api.nvim_set_option
 local get_runtime_file = api.nvim_get_runtime_file
 
+local cache = require('impatient.cache')
 local impatient_start = uv.hrtime()
 local impatient_dur
 
@@ -21,6 +22,7 @@ if _G.use_cachepack == nil then
 end
 
 _G.__luacache = M
+_G.__luacache_use_sqlite = vim.F.if_nil(_G.__luacache_use_sqlite, false)
 
 local function load_mpack()
   if vim.mpack then
@@ -223,17 +225,29 @@ local function load_from_cache(name)
 end
 
 function M.save_cache()
-  if M.dirty then
-    log('Updating cache file: %s', M.path)
-    local f = io.open(M.path, 'w+b')
-    f:write(mpack.pack(M.cache))
-    f:flush()
+  if not M.dirty then return end
+
+  if _G.__luacache_use_sqlite then
+    log('Updating cache db')
+    cache:save(mpack.pack(M.cache))
     M.dirty = false
+    return
   end
+
+  log('Updating cache file: %s', M.path)
+  local f = io.open(M.path, 'w+b')
+  f:write(mpack.pack(M.cache))
+  f:flush()
+  M.dirty = false
 end
 
 function M.clear_cache()
   M.cache = {}
+  if _G.__luacache_use_sqlite then
+    cache:clear()
+    return
+  end
+
   os.remove(M.path)
 end
 
@@ -253,20 +267,25 @@ end
 -- end
 
 local function setup()
-  if uv.fs_stat(M.path) then
-    log('Loading cache file %s', M.path)
-    local f = io.open(M.path, 'rb')
-    local ok
-    ok, M.cache = pcall(function()
-      return mpack.unpack(f:read'*a')
-    end)
+  if _G.__luacache_use_sqlite then
+    cache:init()
+    M.cache = mpack.unpack(cache:dump())
+  else
+    if uv.fs_stat(M.path) then
+      log('Loading cache file %s', M.path)
+      local f = io.open(M.path, 'rb')
+      local ok
+      ok, M.cache = pcall(function()
+        return mpack.unpack(f:read'*a')
+      end)
 
-    if not ok then
-      log('Corrupted cache file, %s. Invalidating...', M.path)
-      os.remove(M.path)
-      M.cache = {}
+      if not ok then
+        log('Corrupted cache file, %s. Invalidating...', M.path)
+        os.remove(M.path)
+        M.cache = {}
+      end
+      M.dirty = not ok
     end
-    M.dirty = not ok
   end
 
   local insert = table.insert
