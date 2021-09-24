@@ -82,12 +82,12 @@ local gen_exp = function(use_cachepack)
     'Creating cache for module lspconfig/configs',
     'No cache for module lspconfig/util',
     'Creating cache for module lspconfig/util',
-    use_cachepack and 'No cache for module vim/uri' or nil,
-    use_cachepack and 'Creating cache for module vim/uri' or nil,
+    (use_cachepack or not nvim05) and 'No cache for module vim/uri',
+    (use_cachepack or not nvim05) and 'Creating cache for module vim/uri',
     'No cache for module vim/lsp',
     'Creating cache for module vim/lsp',
-    nvim05 and 'No cache for module vim/F' or nil,
-    nvim05 and 'Creating cache for module vim/F' or nil,
+    nvim05 and 'No cache for module vim/F',
+    nvim05 and 'Creating cache for module vim/F',
     'No cache for module vim/lsp/handlers',
     'Creating cache for module vim/lsp/handlers',
     'No cache for module vim/lsp/log',
@@ -96,8 +96,8 @@ local gen_exp = function(use_cachepack)
     'Creating cache for module vim/lsp/protocol',
     'No cache for module vim/lsp/util',
     'Creating cache for module vim/lsp/util',
-    not nvim05 and 'No cache for module vim/lsp/_snippet' or nil,
-    not nvim05 and 'Creating cache for module vim/lsp/_snippet' or nil,
+    not nvim05 and 'No cache for module vim/lsp/_snippet',
+    not nvim05 and 'Creating cache for module vim/lsp/_snippet',
     'No cache for module vim/highlight',
     'Creating cache for module vim/highlight',
     'No cache for module vim/lsp/buf',
@@ -120,7 +120,9 @@ local gen_exp = function(use_cachepack)
   -- Realign table
   local exp1 = {}
   for _, v in pairs(exp) do
-    exp1[#exp1+1] = v
+    if type(v) == 'string' then
+      exp1[#exp1+1] = v
+    end
   end
 
   return exp1
