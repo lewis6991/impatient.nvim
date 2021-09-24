@@ -110,7 +110,6 @@ function M.print_profile(profile)
   api.nvim_set_current_buf(bufnr)
 end
 
-
 M.mod_require = function(profile)
   local orig_require = require
   local rp = {}
@@ -119,11 +118,16 @@ M.mod_require = function(profile)
     local basename = mod:gsub('%.', '/')
 
     if profile[basename] ~= nil then
+      if not profile[basename].loader then
+        -- require before profiling was enabled
+        profile[basename].loader = 'NA'
+      end
       return orig_require(mod)
     end
 
     -- Only profile the first require
-    profile[basename] = {}
+    local pb = {}
+    profile[basename] = pb
 
     rp[#rp+1] = basename
     local ptr = #rp
@@ -131,20 +135,36 @@ M.mod_require = function(profile)
     local s = uv.hrtime()
     local ret = orig_require(mod)
 
-    profile[basename].exec = uv.hrtime() - s
+    pb.exec = uv.hrtime() - s
 
     -- Remove the execution time for dependent modules
     if #rp > ptr then
       for i = ptr + 1, #rp do
         local dep = rp[i]
         assert(basename ~= dep)
-        -- print(string.format('REMOVING %s from %s', dep, basename))
-        profile[basename].exec = profile[basename].exec - profile[dep].exec
+        pb.exec = pb.exec - profile[dep].exec
       end
     end
-    assert(profile[basename].exec > 0)
+    assert(pb.exec > 0)
 
     return ret
+  end
+
+  local pl = package.loaders
+  for i = 1, #pl do
+    local l = pl[i]
+    pl[i] = function(mod)
+      local basename = mod:gsub('%.', '/')
+      local pb = profile[basename]
+      if pb and not pb.loader then
+        if i == 1 then
+          pb.loader = 'preloader'
+        else
+          pb.loader = '#'..i
+        end
+      end
+      return l(mod)
+    end
   end
 end
 
