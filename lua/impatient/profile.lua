@@ -157,11 +157,7 @@ M.mod_require = function(profile)
       local basename = mod:gsub('%.', '/')
       local pb = profile[basename]
       if pb and not pb.loader then
-        if i == 1 then
-          pb.loader = 'preloader'
-        else
-          pb.loader = '#'..i
-        end
+        pb.loader = i == 1 and 'preloader' or '#'..i
       end
       return l(mod)
     end
