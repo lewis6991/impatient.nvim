@@ -96,6 +96,8 @@ local gen_exp = function(use_cachepack)
     'Creating cache for module vim/lsp/protocol',
     'No cache for module vim/lsp/util',
     'Creating cache for module vim/lsp/util',
+    not nvim05 and 'No cache for module vim/lsp/_snippet' or nil,
+    not nvim05 and 'Creating cache for module vim/lsp/_snippet' or nil,
     'No cache for module vim/highlight',
     'Creating cache for module vim/highlight',
     'No cache for module vim/lsp/buf',
