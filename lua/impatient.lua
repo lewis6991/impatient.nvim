@@ -53,12 +53,17 @@ function M.enable_profile()
   M.profile = {}
   ip.mod_require(M.profile)
 
+  M.add_profile = function(mod, resolve_start, load_start, loader)
+    local mp = M.profile[mod]
+    mp.resolve = load_start - resolve_start
+    mp.load    = uv.hrtime() - load_start
+    mp.loader  = loader
+  end
+
   M.print_profile = function()
     M.profile['impatient'] = {
-      resolve = 0,
-      load    = 0,
-      exec    = impatient_dur,
-      loader  = 'standard'
+      exec   = impatient_dur,
+      loader = 'standard'
     }
     ip.print_profile(M.profile)
   end
@@ -106,19 +111,15 @@ local function load_package_with_cache(name, loader)
     if modpath then
       local load_start = hrtime()
       local chunk, err = loadfile(modpath)
-
-      if M.profile then
-        local mp = M.profile
-        mp[basename].resolve = load_start - resolve_start
-        mp[basename].load    = hrtime() - load_start
-        mp[basename].loader  = loader or 'standard'
-      end
-
       if chunk == nil then return err end
 
       log('Creating cache for module %s', basename)
       M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
       M.dirty = true
+
+      if M.add_profile then
+        M.add_profile(basename, resolve_start, load_start, loader or 'standard')
+      end
 
       return chunk
     end
@@ -129,6 +130,7 @@ local function load_package_with_cache(name, loader)
     local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
     local found = vim.api.nvim_get_runtime_file(path, false)
     if #found > 0 then
+      local load_start = hrtime()
       -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
       -- a) strip prefix up to and including the first dash, if any
       -- b) replace all dots by underscores
@@ -137,6 +139,11 @@ local function load_package_with_cache(name, loader)
       local dash = name:find("-", 1, true)
       local modname = dash and name:sub(dash + 1) or name
       local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
+
+      if M.add_profile then
+        M.add_profile(basename, resolve_start, load_start, (loader or 'standard')..'(so)')
+      end
+
       return f or error(err)
     end
   end
@@ -205,11 +212,8 @@ local function load_from_cache(name)
   local load_start = hrtime()
   local chunk = loadstring(codes)
 
-  if M.profile then
-    local mp = M.profile
-    mp[basename].resolve = load_start - resolve_start
-    mp[basename].load    = hrtime() - load_start
-    mp[basename].loader  = 'cache'
+  if M.add_profile then
+    M.add_profile(basename, resolve_start, load_start, 'cache')
   end
 
   if not chunk then

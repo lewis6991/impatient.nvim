@@ -138,14 +138,21 @@ M.mod_require = function(profile)
     local s = uv.hrtime()
     local ret = orig_require(mod)
 
-    pb.exec = uv.hrtime() - s
+    pb.exec = uv.hrtime() - s - (pb.resolve or 0) - (pb.load or 0)
 
     -- Remove the execution time for dependent modules
     if #rp > ptr then
       for i = ptr + 1, #rp do
         local dep = rp[i]
         assert(basename ~= dep)
-        pb.exec = pb.exec - profile[dep].exec
+        local pd = profile[dep]
+        if pd.exec then
+          pb.exec = pb.exec - pd.exec
+        else
+          print(string.format(
+            'impatient: [error] dependency %s of %s does not have profile results. '..
+            'Results will be inaccurate', basename, dep))
+        end
       end
     end
     assert(pb.exec > 0)
