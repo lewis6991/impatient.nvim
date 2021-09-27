@@ -85,24 +85,25 @@ function M.print_profile(profile)
   end
 
   local l = string.rep('─', name_pad+1)
+  local n = string.rep(' ', name_pad+1)
 
-  local f1 = '%-'..name_pad..'s │ %9s │ %8.4fms │ %8.4fms │ %8.4fms │ %8.4fms │'
+  local f1 = '%-'..name_pad..'s │ %14s │ %8.4fms │ %8.4fms │ %8.4fms │ %8.4fms │'
 
   local function render_table(rows, name)
-    add('%s────────────────────────────────────────────────────────────────┐', l)
+    add('%s─────────────────────────────────────────────────────────────────────┐', l)
     add('%-'..name_pad..'s                                                                 │', name)
-    add('%s┬───────────┬────────────┬────────────┬────────────┬────────────┤', l)
+    add('%s┬────────────────┬────────────┬────────────┬────────────┬────────────┤', l)
     for _, p in ipairs(rows) do
       add(f1, p.module, p.loader, p.resolve, p.load, p.exec, p.total)
     end
-    add('%s┴───────────┴────────────┴────────────┴────────────┴────────────┘', l)
+    add('%s┴────────────────┴────────────┴────────────┴────────────┴────────────┘', l)
   end
 
-  add('%s┬───────────┬────────────┬────────────┬────────────┬────────────┐', l)
-  add('%-'..name_pad..'s │ Loader    │ Resolve    │ Load       │ Exec       │ Total      │', '')
-  add('%s┼───────────┼────────────┼────────────┼────────────┼────────────┤', l)
+  add('%s┬────────────────┬────────────┬────────────┬────────────┬────────────┐', l)
+  add('%s│ Loader         │ Resolve    │ Load       │ Exec       │ Total      │', n)
+  add('%s┼────────────────┼────────────┼────────────┼────────────┼────────────┤', l)
   add(f1, 'Total', '', total_resolve, total_load, total_exec, total_resolve+total_load+total_exec)
-  add('%s┴───────────┴────────────┴────────────┴────────────┴────────────┘', l)
+  add('%s┴────────────────┴────────────┴────────────┴────────────┴────────────┘', l)
   render_table(plugins, 'By Plugin')
   render_table(modules, 'By Module')
 
