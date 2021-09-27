@@ -2,8 +2,9 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
-local get_option, set_option = api.nvim_get_option, api.nvim_set_option
+local get_option = api.nvim_get_option
 local get_runtime_file = api.nvim_get_runtime_file
+local globpath = vim.fn.globpath
 
 local impatient_start = uv.hrtime()
 local impatient_dur
@@ -100,14 +101,40 @@ local function modpath_unmangle(modpath)
   return modpath
 end
 
-local function load_package_with_cache(name, loader)
+local reduced_rtp
+local rtp
+
+local function update_reduced_rtp()
+  local cur_rtp = get_option('runtimepath')
+
+  if cur_rtp ~= rtp then
+    log('Updating reduced rtp')
+    rtp = cur_rtp
+    local luadirs = get_runtime_file('lua/', true)
+
+    for i = 1, #luadirs do
+      luadirs[i] = luadirs[i]:sub(1, -6)
+    end
+    reduced_rtp = table.concat(luadirs, ',')
+  end
+end
+
+local function load_package_with_cache(name)
+  if not vim.in_fast_event() then
+    update_reduced_rtp()
+  end
   local resolve_start = hrtime()
 
   local basename = name:gsub('%.', '/')
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
 
   for _, path in ipairs(paths) do
-    local modpath = get_runtime_file(path, false)[1]
+    local modpath
+    if reduced_rtp then
+      modpath = globpath(reduced_rtp, path, true, true)[1]
+    else
+      modpath = get_runtime_file(path, false)[1]
+    end
     if modpath then
       local load_start = hrtime()
       local chunk, err = loadfile(modpath)
@@ -118,7 +145,8 @@ local function load_package_with_cache(name, loader)
       M.dirty = true
 
       if M.add_profile then
-        M.add_profile(basename, resolve_start, load_start, loader or 'standard')
+        local loader = reduced_rtp and 'reduced' or 'standard'
+        M.add_profile(basename, resolve_start, load_start, loader)
       end
 
       return chunk
@@ -128,8 +156,13 @@ local function load_package_with_cache(name, loader)
   -- Copied from neovim/src/nvim/lua/vim.lua
   for _, trail in ipairs(vim._so_trails) do
     local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
-    local found = vim.api.nvim_get_runtime_file(path, false)
-    if #found > 0 then
+    local found
+    if reduced_rtp then
+      found = globpath(reduced_rtp, path, true, true)[1]
+    else
+      found = get_runtime_file(path, false)[1]
+    end
+    if found then
       local load_start = hrtime()
       -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
       -- a) strip prefix up to and including the first dash, if any
@@ -138,10 +171,11 @@ local function load_package_with_cache(name, loader)
       -- So "foo-bar.baz" should result in "luaopen_bar_baz"
       local dash = name:find("-", 1, true)
       local modname = dash and name:sub(dash + 1) or name
-      local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
+      local f, err = package.loadlib(found, "luaopen_"..modname:gsub("%.", "_"))
 
       if M.add_profile then
-        M.add_profile(basename, resolve_start, load_start, (loader or 'standard')..'(so)')
+        local loader = reduced_rtp and 'reduced' or 'standard'
+        M.add_profile(basename, resolve_start, load_start, loader..'(so)')
       end
 
       return f or error(err)
@@ -149,46 +183,6 @@ local function load_package_with_cache(name, loader)
   end
 
   return nil
-end
-
-local reduced_rtp
-local rtp
-
--- Speed up non-cached loads by reducing the rtp path during requires
-local function update_reduced_rtp()
-  local luadirs = get_runtime_file('lua/', true)
-
-  for i = 1, #luadirs do
-    luadirs[i] = luadirs[i]:sub(1, -6)
-  end
-
-  reduced_rtp = table.concat(luadirs, ',')
-end
-
-local function load_package_with_cache_reduced_rtp(name)
-  if vim.in_fast_event() then
-    -- Can't set/get options in the fast handler
-    return load_package_with_cache(name, 'fast')
-  end
-
-  local orig_rtp = get_option('runtimepath')
-  local orig_ei  = get_option('eventignore')
-
-  if orig_rtp ~= rtp then
-    log('Updating reduced rtp')
-    rtp = orig_rtp
-    update_reduced_rtp()
-  end
-
-  set_option('eventignore', 'all')
-  set_option('rtp', reduced_rtp)
-
-  local found = load_package_with_cache(name, 'reduced')
-
-  set_option('rtp', orig_rtp)
-  set_option('eventignore', orig_ei)
-
-  return found
 end
 
 local function load_from_cache(name)
@@ -286,7 +280,7 @@ local function setup()
   end
 
   insert(package.loaders, 2, load_from_cache)
-  insert(package.loaders, 3, load_package_with_cache_reduced_rtp)
+  insert(package.loaders, 3, load_package_with_cache)
 
   vim.cmd[[
     augroup impatient
