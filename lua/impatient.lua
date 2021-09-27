@@ -5,6 +5,7 @@ local uv = vim.loop
 local get_option = api.nvim_get_option
 local get_runtime_file = api.nvim_get_runtime_file
 local globpath = vim.fn.globpath
+local fs_stat = uv.fs_stat
 
 local impatient_start = uv.hrtime()
 local impatient_dur
@@ -73,7 +74,7 @@ function M.enable_profile()
 end
 
 local function hash(modpath)
-  local stat = uv.fs_stat(modpath)
+  local stat = fs_stat(modpath)
   if stat then
     return stat.mtime.sec
   end
@@ -119,6 +120,36 @@ local function update_reduced_rtp()
   end
 end
 
+local function get_lua_runtime_file(basename, path)
+  -- Look in the cache to see if we have already loaded the parent module.
+  -- If we have then try looking in the parents dir first.
+  local parents = vim.split(basename, '/')
+  for i = #parents, 1, -1 do
+    local parent = table.concat(vim.list_slice(parents, 1, i), '/')
+    if M.cache[parent] then
+      local ppath = M.cache[parent][1]
+      if ppath:sub(-9) == '/init.lua' then
+        ppath = ppath:sub(1, -10) -- a/b/init.lua -> a/b
+      else
+        ppath = ppath:sub(1, -5)  -- a/b.lua -> a/b
+      end
+
+      -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
+      local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
+      if fs_stat(modpath) then
+        return modpath, true
+      end
+    end
+  end
+
+  if reduced_rtp then
+    return globpath(reduced_rtp, path, true, true)[1]
+  end
+
+  -- What Neovim does by default; slowest
+  return get_runtime_file(path, false)[1]
+end
+
 local function load_package_with_cache(name)
   if not vim.in_fast_event() then
     update_reduced_rtp()
@@ -129,12 +160,7 @@ local function load_package_with_cache(name)
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
 
   for _, path in ipairs(paths) do
-    local modpath
-    if reduced_rtp then
-      modpath = globpath(reduced_rtp, path, true, true)[1]
-    else
-      modpath = get_runtime_file(path, false)[1]
-    end
+    local modpath, cache_success  = get_lua_runtime_file(basename, path)
     if modpath then
       local load_start = hrtime()
       local chunk, err = loadfile(modpath)
@@ -145,7 +171,9 @@ local function load_package_with_cache(name)
       M.dirty = true
 
       if M.add_profile then
-        local loader = reduced_rtp and 'reduced' or 'standard'
+        local loader = cache_success and 'cached resolve'  or
+                       reduced_rtp   and 'reduced'   or
+                                         'standard'
         M.add_profile(basename, resolve_start, load_start, loader)
       end
 
