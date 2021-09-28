@@ -110,6 +110,7 @@ function M.print_profile(profile)
   local bufnr = api.nvim_create_buf(false, false)
   api.nvim_buf_set_lines(bufnr, 0, 0, false, lines)
   api.nvim_buf_set_option(bufnr, 'buftype', 'nofile')
+  api.nvim_buf_set_option(bufnr, "modifiable", false)
   api.nvim_buf_set_name(bufnr, 'Impatient Profile Report')
   api.nvim_set_current_buf(bufnr)
 end
