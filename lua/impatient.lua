@@ -55,10 +55,9 @@ function M.enable_profile()
   M.profile = {}
   ip.mod_require(M.profile)
 
-  M.add_profile = function(mod, resolve_start, load_start, loader)
+  M.mark_resolve = function(mod, loader)
     local mp = M.profile[mod]
-    mp.resolve = load_start - resolve_start
-    mp.load    = uv.hrtime() - load_start
+    mp.resolve_end = uv.hrtime()
     mp.loader  = loader
   end
 
@@ -77,12 +76,6 @@ local function hash(modpath)
   local stat = fs_stat(modpath)
   if stat then
     return stat.mtime.sec
-  end
-end
-
-local function hrtime()
-  if M.profile then
-    return uv.hrtime()
   end
 end
 
@@ -154,7 +147,6 @@ local function load_package_with_cache(name)
   if not vim.in_fast_event() then
     update_reduced_rtp()
   end
-  local resolve_start = hrtime()
 
   local basename = name:gsub('%.', '/')
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
@@ -162,20 +154,20 @@ local function load_package_with_cache(name)
   for _, path in ipairs(paths) do
     local modpath, cache_success  = get_lua_runtime_file(basename, path)
     if modpath then
-      local load_start = hrtime()
+      if M.mark_resolve then
+        local loader = cache_success and 'cached resolve'  or
+                       reduced_rtp   and 'reduced'         or 'standard'
+        M.mark_resolve(basename, loader)
+      end
+
       local chunk, err = loadfile(modpath)
-      if chunk == nil then return err end
+      if chunk == nil then
+        error(err)
+      end
 
       log('Creating cache for module %s', basename)
       M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
       M.dirty = true
-
-      if M.add_profile then
-        local loader = cache_success and 'cached resolve'  or
-                       reduced_rtp   and 'reduced'   or
-                                         'standard'
-        M.add_profile(basename, resolve_start, load_start, loader)
-      end
 
       return chunk
     end
@@ -191,7 +183,11 @@ local function load_package_with_cache(name)
       found = get_runtime_file(path, false)[1]
     end
     if found then
-      local load_start = hrtime()
+      if M.mark_resolve then
+        local loader = reduced_rtp and 'reduced' or 'standard'
+        M.mark_resolve(basename, loader..'(so)')
+      end
+
       -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
       -- a) strip prefix up to and including the first dash, if any
       -- b) replace all dots by underscores
@@ -200,12 +196,6 @@ local function load_package_with_cache(name)
       local dash = name:find("-", 1, true)
       local modname = dash and name:sub(dash + 1) or name
       local f, err = package.loadlib(found, "luaopen_"..modname:gsub("%.", "_"))
-
-      if M.add_profile then
-        local loader = reduced_rtp and 'reduced' or 'standard'
-        M.add_profile(basename, resolve_start, load_start, loader..'(so)')
-      end
-
       return f or error(err)
     end
   end
@@ -216,7 +206,6 @@ end
 local function load_from_cache(name)
   local basename = name:gsub('%.', '/')
 
-  local resolve_start = hrtime()
   if M.cache[basename] == nil then
     log('No cache for module %s', basename)
     return 'No cache entry'
@@ -231,12 +220,11 @@ local function load_from_cache(name)
     return 'Stale cache'
   end
 
-  local load_start = hrtime()
-  local chunk = loadstring(codes)
-
-  if M.add_profile then
-    M.add_profile(basename, resolve_start, load_start, 'cache')
+  if M.mark_resolve then
+    M.mark_resolve(basename, 'cache')
   end
+
+  local chunk = loadstring(codes)
 
   if not chunk then
     M.cache[basename] = nil

@@ -91,7 +91,7 @@ function M.print_profile(profile)
 
   local function render_table(rows, name)
     add('%s─────────────────────────────────────────────────────────────────────┐', l)
-    add('%-'..name_pad..'s                                                                 │', name)
+    add('%-'..name_pad..'s                                                                      │', name)
     add('%s┬────────────────┬────────────┬────────────┬────────────┬────────────┤', l)
     for _, p in ipairs(rows) do
       add(f1, p.module, p.loader, p.resolve, p.load, p.exec, p.total)
@@ -138,9 +138,13 @@ M.mod_require = function(profile)
     local ptr = #rp
 
     local s = uv.hrtime()
-    local ret = orig_require(mod)
+    local ok, ret = pcall(orig_require, mod)
 
     pb.exec = uv.hrtime() - s - (pb.resolve or 0) - (pb.load or 0)
+
+    if not ok then
+      error(ret)
+    end
 
     -- Remove the execution time for dependent modules
     if #rp > ptr then
@@ -153,7 +157,7 @@ M.mod_require = function(profile)
         else
           print(string.format(
             'impatient: [error] dependency %s of %s does not have profile results. '..
-            'Results will be inaccurate', basename, dep))
+            'Results will be inaccurate', dep, basename))
         end
       end
     end
@@ -162,14 +166,26 @@ M.mod_require = function(profile)
     return ret
   end
 
+  -- Add profiling around all the loaders
   local pl = package.loaders
   for i = 1, #pl do
     local l = pl[i]
     pl[i] = function(mod)
+      local resolve_start = uv.hrtime()
       local basename = mod:gsub('%.', '/')
       local pb = profile[basename]
       if pb and not pb.loader then
         pb.loader = i == 1 and 'preloader' or '#'..i
+      end
+      local ok, ret = pcall(l, mod)
+      if pb.resolve_end then
+        pb.load = uv.hrtime() - pb.resolve_end
+        pb.resolve = pb.resolve_end - resolve_start
+      else
+        pb.load = uv.hrtime() - resolve_start
+      end
+      if not ok then
+        error(ret)
       end
       return l(mod)
     end
