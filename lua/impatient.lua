@@ -240,7 +240,7 @@ function M.save_cache()
   if M.dirty then
     log('Updating cache file: %s', M.path)
     local f = io.open(M.path, 'w+b')
-    f:write(mpack.pack(M.cache))
+    f:write(mpack.encode(M.cache))
     f:flush()
     M.dirty = false
   end
@@ -272,7 +272,7 @@ local function setup()
     local f = io.open(M.path, 'rb')
     local ok
     ok, M.cache = pcall(function()
-      return mpack.unpack(f:read'*a')
+      return mpack.decode(f:read'*a')
     end)
 
     if not ok then
