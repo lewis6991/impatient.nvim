@@ -10,7 +10,7 @@ local c_sizeof_number_t = ffi.sizeof "number_t"
 
 local CachePack = {}
 
-function CachePack.pack(cache)
+function CachePack.encode(cache)
   local buf = {}
 
   local function write_number(num)
@@ -35,7 +35,7 @@ function CachePack.pack(cache)
   return table.concat(buf)
 end
 
-function CachePack.unpack(str)
+function CachePack.decode(str)
   if str == nil or #str == 0 then
     return {}
   end
