@@ -19,25 +19,12 @@ local M = {
 }
 
 if _G.use_cachepack == nil then
-  _G.use_cachepack = not vim.mpack
+  _G.use_cachepack = not (vim.mpack and vim.mpack.encode)
 end
 
 _G.__luacache = M
 
-local function load_mpack()
-  if vim.mpack then
-    return vim.mpack
-  end
-
-  local has_packer, packer_luarocks = pcall(require, 'packer.luarocks')
-  if has_packer then
-    packer_luarocks.setup_paths()
-  end
-
-  return require('mpack')
-end
-
-local mpack = _G.use_cachepack and require('impatient.cachepack') or load_mpack()
+local mpack = _G.use_cachepack and require('impatient.cachepack') or vim.mpack
 
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
