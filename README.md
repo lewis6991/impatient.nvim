@@ -939,6 +939,8 @@ Total resolve: 2.122016ms, total load: 4.539859ms
 
 [libs: vendor libmpack and libmpack-lua](https://github.com/neovim/neovim/pull/15566) [merged]
 
+[fix(vim.mpack): rename pack/unpack => encode/decode](https://github.com/neovim/neovim/pull/16175) [merged]
+
 [fix(runtime): add compressed representation to &rtp](https://github.com/neovim/neovim/pull/15867) [merged]
 
 [fix(runtime): don't use regexes inside lua require'mod'](https://github.com/neovim/neovim/pull/15973) [merged]
