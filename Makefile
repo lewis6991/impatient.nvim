@@ -4,22 +4,27 @@ NEOVIM_BRANCH := master
 
 FILTER=.*
 
-neovim:
-	git clone --depth 1 https://github.com/neovim/neovim --branch $(NEOVIM_BRANCH)
+NEOVIM := neovim-$(NEOVIM_BRANCH)
+
+.PHONY: neovim
+neovim: $(NEOVIM)
+
+$(NEOVIM):
+	git clone --depth 1 https://github.com/neovim/neovim --branch $(NEOVIM_BRANCH) $@
 	make -C $@
 
-export VIMRUNTIME=$(PWD)/neovim/runtime
+export VIMRUNTIME=$(PWD)/$(NEOVIM)/runtime
 
 .PHONY: test
-test: neovim
-	neovim/.deps/usr/bin/busted \
+test: $(NEOVIM)
+	$(NEOVIM)/.deps/usr/bin/busted \
 		-v \
 		--lazy \
 		--helper=$(PWD)/test/preload.lua \
 		--output test.busted.outputHandlers.nvim \
-		--lpath=$(PWD)/neovim/?.lua \
-		--lpath=$(PWD)/neovim/build/?.lua \
-		--lpath=$(PWD)/neovim/runtime/lua/?.lua \
+		--lpath=$(PWD)/$(NEOVIM)/?.lua \
+		--lpath=$(PWD)/$(NEOVIM)/build/?.lua \
+		--lpath=$(PWD)/$(NEOVIM)/runtime/lua/?.lua \
 		--lpath=$(PWD)/?.lua \
 		--lpath=$(PWD)/lua/?.lua \
 		--filter=$(FILTER) \
