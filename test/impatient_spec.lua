@@ -100,10 +100,12 @@ local gen_exp = function(use_cachepack)
     not nvim05 and 'Creating cache for module vim/lsp/_snippet',
     'No cache for module vim/highlight',
     'Creating cache for module vim/highlight',
+    not nvim05 and 'No cache for module vim/lsp/rpc',
+    not nvim05 and 'Creating cache for module vim/lsp/rpc',
     'No cache for module vim/lsp/buf',
     'Creating cache for module vim/lsp/buf',
-    'No cache for module vim/lsp/rpc',
-    'Creating cache for module vim/lsp/rpc',
+    nvim05 and 'No cache for module vim/lsp/rpc',
+    nvim05 and 'Creating cache for module vim/lsp/rpc',
     'No cache for module vim/lsp/diagnostic',
     'Creating cache for module vim/lsp/diagnostic',
     'No cache for module vim/lsp/codelens',
@@ -146,12 +148,14 @@ describe('impatient', function()
 
   local function tests(use_cachepack)
     local function run()
-      exec_lua([[
-        _G.use_cachepack = ...
+      if use_cachepack then
+        exec_lua[[_G.use_cachepack = true]]
+      end
+      exec_lua[[
         require('impatient')
         require('plugins')
         _G.__luacache.save_cache()
-      ]], use_cachepack)
+      ]]
     end
 
     it('creates cache', function()
@@ -166,7 +170,9 @@ describe('impatient', function()
       eq({ 'Loading cache file scratch/cache/nvim/luacache' },
         exec_lua("return _G.__luacache.log"))
 
-      assert(use_cachepack == exec_lua("return _G.package.loaded['impatient.cachepack'] ~= nil"))
+      if use_cachepack then
+        assert(exec_lua("return _G.package.loaded['impatient.cachepack'] ~= nil"))
+      end
     end)
   end
 

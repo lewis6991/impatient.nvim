@@ -61,7 +61,7 @@ jobs:
       - name: Cache neovim
         uses: actions/cache@v2
         with:
-          path: neovim
+          path: neovim-${{env.NEOVIM_BRANCH}}
           key: build-${{env.NEOVIM_BRANCH}}
 
       - name: Build Neovim
