@@ -2,9 +2,7 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
-local get_option = api.nvim_get_option
-local get_runtime_file = api.nvim_get_runtime_file
-local globpath = vim.fn.globpath
+local get_runtime = api.nvim__get_runtime
 local fs_stat = uv.fs_stat
 
 local impatient_start = uv.hrtime()
@@ -25,6 +23,20 @@ end
 _G.__luacache = M
 
 local mpack = _G.use_cachepack and require('impatient.cachepack') or vim.mpack
+
+if not get_runtime then
+  -- nvim 0.5 compat
+  get_runtime = function(paths, all, _)
+    local r = {}
+    for _, path in ipairs(paths) do
+      local found = api.nvim_get_runtime_file(path, all)
+      for i = 1, #found do
+        r[#r+1] = found[i]
+      end
+    end
+    return r
+  end
+end
 
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
@@ -82,25 +94,7 @@ local function modpath_unmangle(modpath)
   return modpath
 end
 
-local reduced_rtp
-local rtp
-
-local function update_reduced_rtp()
-  local cur_rtp = get_option('runtimepath')
-
-  if cur_rtp ~= rtp then
-    log('Updating reduced rtp')
-    rtp = cur_rtp
-    local luadirs = get_runtime_file('lua/', true)
-
-    for i = 1, #luadirs do
-      luadirs[i] = luadirs[i]:sub(1, -6)
-    end
-    reduced_rtp = table.concat(luadirs, ',')
-  end
-end
-
-local function get_lua_runtime_file(basename, path)
+local function get_lua_runtime_file(basename, paths)
   -- Look in the cache to see if we have already loaded the parent module.
   -- If we have then try looking in the parents dir first.
   local parents = vim.split(basename, '/')
@@ -114,77 +108,64 @@ local function get_lua_runtime_file(basename, path)
         ppath = ppath:sub(1, -5)  -- a/b.lua -> a/b
       end
 
-      -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
-      local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
-      if fs_stat(modpath) then
-        return modpath, true
+      for _, path in ipairs(paths) do
+        -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
+        local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
+        if fs_stat(modpath) then
+          return modpath, true
+        end
       end
     end
-  end
-
-  if reduced_rtp then
-    return globpath(reduced_rtp, path, true, true)[1]
   end
 
   -- What Neovim does by default; slowest
-  return get_runtime_file(path, false)[1]
+  return get_runtime(paths, false, {is_lua=true})[1]
 end
 
 local function load_package_with_cache(name)
-  if not vim.in_fast_event() then
-    update_reduced_rtp()
-  end
-
   local basename = name:gsub('%.', '/')
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
-
-  for _, path in ipairs(paths) do
-    local modpath, cache_success  = get_lua_runtime_file(basename, path)
-    if modpath then
-      if M.mark_resolve then
-        local loader = cache_success and 'cached resolve'  or
-                       reduced_rtp   and 'reduced'         or 'standard'
-        M.mark_resolve(basename, loader)
-      end
-
-      local chunk, err = loadfile(modpath)
-      if chunk == nil then
-        error(err)
-      end
-
-      log('Creating cache for module %s', basename)
-      M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
-      M.dirty = true
-
-      return chunk
+  local modpath, cache_success = get_lua_runtime_file(basename, paths)
+  if modpath then
+    if M.mark_resolve then
+      local loader = cache_success and 'cached resolve'  or 'standard'
+      M.mark_resolve(basename, loader)
     end
+
+    local chunk, err = loadfile(modpath)
+    if chunk == nil then
+      error(err)
+    end
+
+    log('Creating cache for module %s', basename)
+    M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
+    M.dirty = true
+
+    return chunk
+  end
+
+  local so_paths = {}
+  for _,trail in ipairs(vim._so_trails) do
+    local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
+    so_paths[#so_paths+1] = path
   end
 
   -- Copied from neovim/src/nvim/lua/vim.lua
-  for _, trail in ipairs(vim._so_trails) do
-    local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
-    local found
-    if reduced_rtp then
-      found = globpath(reduced_rtp, path, true, true)[1]
-    else
-      found = get_runtime_file(path, false)[1]
+  local found = get_runtime(so_paths, false, {is_lua=true})
+  if found then
+    if M.mark_resolve then
+      M.mark_resolve(basename, 'standard(so)')
     end
-    if found then
-      if M.mark_resolve then
-        local loader = reduced_rtp and 'reduced' or 'standard'
-        M.mark_resolve(basename, loader..'(so)')
-      end
 
-      -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
-      -- a) strip prefix up to and including the first dash, if any
-      -- b) replace all dots by underscores
-      -- c) prepend "luaopen_"
-      -- So "foo-bar.baz" should result in "luaopen_bar_baz"
-      local dash = name:find("-", 1, true)
-      local modname = dash and name:sub(dash + 1) or name
-      local f, err = package.loadlib(found, "luaopen_"..modname:gsub("%.", "_"))
-      return f or error(err)
-    end
+    -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
+    -- a) strip prefix up to and including the first dash, if any
+    -- b) replace all dots by underscores
+    -- c) prepend "luaopen_"
+    -- So "foo-bar.baz" should result in "luaopen_bar_baz"
+    local dash = name:find("-", 1, true)
+    local modname = dash and name:sub(dash + 1) or name
+    local f, err = package.loadlib(found, "luaopen_"..modname:gsub("%.", "_"))
+    return f or error(err)
   end
 
   return nil

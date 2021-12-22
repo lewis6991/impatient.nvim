@@ -10,6 +10,10 @@ Optimisations include:
 
 The expectation is that a form of this plugin will eventually be merged into Neovim core via this [PR](https://github.com/neovim/neovim/pull/15436). This plugin serves as a way for impatient users to speed up there Neovim 0.5 until the PR is merged and included in a following Neovim release at which point this plugin will be redundant.
 
+## Requirements
+
+- Neovim >= 0.6.0
+
 ## Optimisations
 
 This plugin does several things to speed up `require` in Lua.
@@ -19,10 +23,6 @@ This plugin does several things to speed up `require` in Lua.
 This is done by using `loadstring` to compile the Lua modules to bytecode and stores them in a cache file. This also has the benefit of avoiding Neovim's expensive module loader which uses `nvim_get_runtime_file()`. The cache is invalidated using the modified time of each modules file path.
 
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache`.
-
-### Reduces `runtimepath` during `require`
-
-`runtimepath` contains directories for many things used by Neovim including Lua modules; the full list of what it is used for can be found using `:help 'runtimepath'`. When `require` is called, Neovim searches through every directory in `runtimepath` until it finds a match. This means it ends up searching in every plugin that doesn't have a Lua directory, which can be a lot and makes `require` much more expensive to run. To mitigate this, Impatient reduces `runtimepath` during `require` to only contain directories that have a Lua directory.
 
 ### Restores the preloader
 

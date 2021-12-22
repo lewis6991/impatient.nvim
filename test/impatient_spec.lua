@@ -9,10 +9,8 @@ local gen_exp = function(use_cachepack)
   local nvim05 = exec_lua('return vim.version().minor') == 5
   local exp = {
     'No cache for module plugins',
-    'Updating reduced rtp',
     'Creating cache for module plugins',
     'No cache for module telescope',
-    'Updating reduced rtp',
     'Creating cache for module telescope',
     'No cache for module telescope/_extensions',
     'Creating cache for module telescope/_extensions',
@@ -102,6 +100,8 @@ local gen_exp = function(use_cachepack)
     'Creating cache for module vim/highlight',
     not nvim05 and 'No cache for module vim/lsp/rpc',
     not nvim05 and 'Creating cache for module vim/lsp/rpc',
+    not nvim05 and 'No cache for module vim/lsp/sync',
+    not nvim05 and 'Creating cache for module vim/lsp/sync',
     'No cache for module vim/lsp/buf',
     'Creating cache for module vim/lsp/buf',
     nvim05 and 'No cache for module vim/lsp/rpc',
