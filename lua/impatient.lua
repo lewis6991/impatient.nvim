@@ -152,7 +152,7 @@ local function load_package_with_cache(name)
 
   -- Copied from neovim/src/nvim/lua/vim.lua
   local found = get_runtime(so_paths, false, {is_lua=true})
-  if found then
+  if found[1] then
     if M.mark_resolve then
       M.mark_resolve(basename, 'standard(so)')
     end
@@ -164,7 +164,7 @@ local function load_package_with_cache(name)
     -- So "foo-bar.baz" should result in "luaopen_bar_baz"
     local dash = name:find("-", 1, true)
     local modname = dash and name:sub(dash + 1) or name
-    local f, err = package.loadlib(found, "luaopen_"..modname:gsub("%.", "_"))
+    local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
     return f or error(err)
   end
 
