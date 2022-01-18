@@ -219,23 +219,8 @@ function M.clear_cache()
   os.remove(M.path)
 end
 
--- -- run a crude hash on vim._load_package to make sure it hasn't changed.
--- local function verify_vim_loader()
---   local expected_sig = 31172
-
---   local dump = {string.byte(string.dump(vim._load_package), 1, -1)}
---   local actual_sig = #dump
---   for i = 1, #dump do
---     actual_sig = actual_sig + dump[i]
---   end
-
---   if actual_sig ~= expected_sig then
---     print(string.format('warning: vim._load_package has an unexpected value, impatient might not behave properly (%d)', actual_sig))
---   end
--- end
-
-local function setup()
-  if uv.fs_stat(M.path) then
+local function init_cache()
+  if fs_stat(M.path) then
     log('Loading cache file %s', M.path)
     local f = io.open(M.path, 'rb')
     local ok
@@ -250,11 +235,13 @@ local function setup()
     end
     M.dirty = not ok
   end
+end
+
+local function setup()
+  init_cache()
 
   local insert = table.insert
   local package = package
-
-  -- verify_vim_loader()
 
   -- Fix the position of the preloader. This also makes loading modules like 'ffi'
   -- and 'bit' quicker
