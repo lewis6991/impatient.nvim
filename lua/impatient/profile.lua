@@ -2,170 +2,205 @@ local M = {}
 
 local api, uv = vim.api, vim.loop
 
-local function add_module_to_plugin(plugins, m)
-  local plugin = m.module:match('([^.]+)')
-  if plugin then
-    if not plugins[plugin] then
-      plugins[plugin] = {
-        module = plugin,
-        resolve = 0,
-        load = 0,
-        exec = 0,
-        total = 0
-      }
-    end
-    local p = plugins[plugin]
+local std_data = vim.fn.stdpath('data')
+local std_config = vim.fn.stdpath('config')
+local vimruntime = os.getenv('VIMRUNTIME')
 
-    p.resolve = p.resolve + m.resolve
-    p.load    = p.load + m.load
-    p.exec    = p.exec + m.exec
-    p.total   = p.total + m.total
-
-    if not p.loader then
-      p.loader = m.loader
-    elseif p.loader ~= m.loader then
-      p.loader = 'mixed'
-    end
-  end
-end
-
-local function post_process_results(module, m)
-  m.load = m.load or 0
-  m.resolve = m.resolve or 0
-  m.exec = m.exec or 0
-
-  m.resolve = m.resolve / 1000000
-  m.load    = m.load / 1000000
-  m.exec    = m.exec / 1000000
-  m.total   = m.resolve + m.load + m.exec
-  m.module  = module:gsub('/', '.')
-end
-
-function M.print_profile(profile)
-  if not profile then
-    print('Error: profiling was not enabled')
-    return
-  end
-
-  local total_resolve = 0
-  local total_load = 0
-  local total_exec = 0
-  local name_pad = 0
-  local modules = {}
-  local plugins = {}
-
-  for module, m in pairs(profile) do
-    post_process_results(module, m)
-    add_module_to_plugin(plugins, m)
-
-    total_resolve = total_resolve + m.resolve
-    total_load    = total_load    + m.load
-    total_exec    = total_exec    + m.exec
-
-    if #module > name_pad then
-      name_pad = #module
-    end
-
-    modules[#modules+1] = m
-  end
-
-  plugins = vim.tbl_values(plugins)
-
-  table.sort(modules, function(a, b)
-    return a.total > b.total
-  end)
-
-  table.sort(plugins, function(a, b)
-    return a.total > b.total
-  end)
-
-  local lines = {}
-  local function add(...)
-    lines[#lines+1] = string.format(...)
-  end
-
-  local l = string.rep('─', name_pad+1)
-  local n = string.rep(' ', name_pad+1)
-
-  local f1 = '%-'..name_pad..'s │ %14s │ %8.4fms │ %8.4fms │ %8.4fms │ %8.4fms │'
-
-  local function render_table(rows, name)
-    add('%s─────────────────────────────────────────────────────────────────────┐', l)
-    add('%-'..name_pad..'s                                                                      │', name)
-    add('%s┬────────────────┬────────────┬────────────┬────────────┬────────────┤', l)
-    for _, p in ipairs(rows) do
-      add(f1, p.module, p.loader, p.resolve, p.load, p.exec, p.total)
-    end
-    add('%s┴────────────────┴────────────┴────────────┴────────────┴────────────┘', l)
-  end
-
-  add('%s┬────────────────┬────────────┬────────────┬────────────┬────────────┐', l)
-  add('%s│ Loader         │ Resolve    │ Load       │ Exec       │ Total      │', n)
-  add('%s┼────────────────┼────────────┼────────────┼────────────┼────────────┤', l)
-  add(f1, 'Total', '', total_resolve, total_load, total_exec, total_resolve+total_load+total_exec)
-  add('%s┴────────────────┴────────────┴────────────┴────────────┴────────────┘', l)
-  render_table(plugins, 'By Plugin')
-  render_table(modules, 'By Module')
-
+local function load_buffer(title, lines)
   local bufnr = api.nvim_create_buf(false, false)
   api.nvim_buf_set_lines(bufnr, 0, 0, false, lines)
   api.nvim_buf_set_option(bufnr, 'bufhidden', 'wipe')
   api.nvim_buf_set_option(bufnr, 'buftype', 'nofile')
   api.nvim_buf_set_option(bufnr, 'swapfile', false)
   api.nvim_buf_set_option(bufnr, "modifiable", false)
-  api.nvim_buf_set_name(bufnr, 'Impatient Profile Report')
+  api.nvim_buf_set_name(bufnr, title)
   api.nvim_set_current_buf(bufnr)
 end
 
-M.mod_require = function(profile)
-  local orig_require = require
-  local rp = {}
+local function mod_path(path)
+  if not path then
+    return '?'
+  end
+  path = path:gsub(std_data..'/site/pack/packer/', '<PACKER>/')
+  path = path:gsub(std_data..'/', '<STD_DATA>/')
+  path = path:gsub(std_config..'/', '<STD_CONFIG>/')
+  path = path:gsub(vimruntime..'/', '<VIMRUNTIME>/')
+  return path
+end
+
+local function time_tostr(x)
+  if x == 0 then
+    return '?'
+  end
+  return string.format('%8.3fms', x)
+end
+
+function M.print_profile(I)
+  local mod_profile = I.modpaths.profile
+  local chunk_profile = I.chunks.profile
+
+  if not mod_profile and not chunk_profile then
+    print('Error: profiling was not enabled')
+    return
+  end
+
+  local total_resolve = 0
+  local total_load = 0
+  local modules = {}
+
+  for path, m in pairs(chunk_profile) do
+    m.load = m.load_end - m.load_start
+    m.load = m.load / 1000000
+    m.path = mod_path(path)
+  end
+
+  local module_content_width = 0
+
+  for module, m in pairs(mod_profile) do
+    m.resolve = 0
+    if m.resolve_end then
+      m.resolve = m.resolve_end - m.resolve_start
+      m.resolve = m.resolve / 1000000
+    end
+
+    m.module  = module:gsub('/', '.')
+    m.loader = m.loader or m.loader_guess
+
+    local path = I.modpaths.cache[module]
+    local path_prof = chunk_profile[path]
+    m.path = mod_path(path)
+
+    if path_prof then
+      chunk_profile[path] = nil
+      m.load = path_prof.load
+      m.ploader = path_prof.loader
+    else
+      m.load = 0
+      m.ploader = 'NA'
+    end
+
+    total_resolve = total_resolve + m.resolve
+    total_load = total_load + m.load
+
+    if #module > module_content_width then
+      module_content_width = #module
+    end
+
+    modules[#modules+1] = m
+  end
+
+  table.sort(modules, function(a, b)
+    return (a.resolve + a.load) > (b.resolve + b.load)
+  end)
+
+  local paths = {}
+
+  local total_paths_load = 0
+  for _, m in pairs(chunk_profile) do
+    paths[#paths+1] = m
+    total_paths_load = total_paths_load + m.load
+  end
+
+  table.sort(paths, function(a, b)
+    return a.load > b.load
+  end)
+
+
+  local lines = {}
+  local function add(fmt, ...)
+    local args = {...}
+    for i, a in ipairs(args) do
+      if type(a) == 'number' then
+        args[i] = time_tostr(a)
+      end
+    end
+
+    lines[#lines+1] = string.format(fmt, unpack(args))
+  end
+
+  local time_cell_width = 12
+  local loader_cell_width = 11
+  local time_content_width = time_cell_width - 2
+  local loader_content_width = loader_cell_width - 2
+  local module_cell_width = module_content_width + 2
+
+  local tcwl = string.rep('─', time_cell_width)
+  local lcwl = string.rep('─', loader_cell_width)
+  local mcwl = string.rep('─', module_cell_width+2)
+
+  local n = string.rep('─', 200)
+
+  local module_cell_format = '%-'..module_cell_width..'s'
+  local loader_format = '%-'..loader_content_width..'s'
+  local line_format = '%s │ %s │ %s │ %s │ %s │ %s'
+
+  local row_fmt = line_format:format(
+    ' %'..time_content_width..'s',
+    loader_format,
+    '%'..time_content_width..'s',
+    loader_format,
+    module_cell_format,
+    '%s')
+
+  local title_fmt = line_format:format(
+    ' %-'..time_content_width..'s',
+    loader_format,
+    '%-'..time_content_width..'s',
+    loader_format,
+    module_cell_format,
+    '%s')
+
+  local title1_width = time_cell_width+loader_cell_width-1
+  local title1_fmt = ('%s │ %s │'):format(
+    ' %-'..title1_width..'s', '%-'..title1_width..'s')
+
+  add('Note: this report is not a measure of startup time. Only use this for comparing')
+  add('between cached and uncached loads of Lua modules')
+  add('')
+
+  add('%s─%s┬%s─%s┐', tcwl, lcwl, tcwl, lcwl)
+  add(title1_fmt, 'Resolve', 'Load')
+  add('%s┬%s┼%s┬%s┼%s┬%s', tcwl, lcwl, tcwl, lcwl, mcwl, n)
+  add(title_fmt, 'Time', 'Method', 'Time', 'Method', 'Module', 'Path')
+  add('%s┼%s┼%s┼%s┼%s┼%s', tcwl, lcwl, tcwl, lcwl, mcwl, n)
+  add(row_fmt, total_resolve, '', total_load, '', 'Total', '')
+  add('%s┼%s┼%s┼%s┼%s┼%s', tcwl, lcwl, tcwl, lcwl, mcwl, n)
+  for _, p in ipairs(modules) do
+    add(row_fmt, p.resolve, p.loader, p.load, p.ploader, p.module, p.path)
+  end
+  add('%s┴%s┴%s┴%s┴%s┴%s', tcwl, lcwl, tcwl, lcwl, mcwl, n)
+
+  if #paths > 0 then
+    add('')
+    add(n)
+    local f3 = ' %'..time_content_width..'s │ %'..loader_content_width..'s │ %s'
+    add('Files loaded with no associated module')
+    add('%s┬%s┬%s', tcwl, lcwl, n)
+    add(f3, 'Time', 'Loader', 'Path')
+    add('%s┼%s┼%s', tcwl, lcwl, n)
+    add(f3, total_paths_load, '', 'Total')
+    add('%s┼%s┼%s', tcwl, lcwl, n)
+    for _, p in ipairs(paths) do
+      add(f3, p.load, p.loader, p.path)
+    end
+    add('%s┴%s┴%s', tcwl, lcwl, n)
+    add('')
+  end
+
+  load_buffer('Impatient Profile Report', lines)
+end
+
+M.setup = function(profile)
+  local _require = require
 
   require = function(mod)
     local basename = mod:gsub('%.', '/')
-
-    if profile[basename] ~= nil then
-      if not profile[basename].loader then
-        -- require before profiling was enabled
-        profile[basename].loader = 'NA'
-      end
-      return orig_require(mod)
+    if not profile[basename] then
+      profile[basename] = {}
+      profile[basename].resolve_start = uv.hrtime()
+      profile[basename].loader_guess = 'C'
     end
-
-    -- Only profile the first require
-    local pb = {}
-    profile[basename] = pb
-
-    rp[#rp+1] = basename
-    local ptr = #rp
-
-    local s = uv.hrtime()
-    local ok, ret = pcall(orig_require, mod)
-
-    pb.exec = uv.hrtime() - s - (pb.resolve or 0) - (pb.load or 0)
-
-    if not ok then
-      error(ret)
-    end
-
-    -- Remove the execution time for dependent modules
-    if #rp > ptr then
-      for i = ptr + 1, #rp do
-        local dep = rp[i]
-        assert(basename ~= dep)
-        local pd = profile[dep]
-        if pd.exec then
-          pb.exec = pb.exec - pd.exec
-        else
-          print(string.format(
-            'impatient: [error] dependency %s of %s does not have profile results. '..
-            'Results will be inaccurate', dep, basename))
-        end
-      end
-    end
-    assert(pb.exec > 0)
-
-    return ret
+    return _require(mod)
   end
 
   -- Add profiling around all the loaders
@@ -173,22 +208,8 @@ M.mod_require = function(profile)
   for i = 1, #pl do
     local l = pl[i]
     pl[i] = function(mod)
-      local resolve_start = uv.hrtime()
       local basename = mod:gsub('%.', '/')
-      local pb = profile[basename]
-      if pb and not pb.loader then
-        pb.loader = i == 1 and 'preloader' or '#'..i
-      end
-      local ok, ret = pcall(l, mod)
-      if pb.resolve_end then
-        pb.load = uv.hrtime() - pb.resolve_end
-        pb.resolve = pb.resolve_end - resolve_start
-      else
-        pb.load = uv.hrtime() - resolve_start
-      end
-      if not ok then
-        error(ret)
-      end
+      profile[basename].loader_guess = i == 1 and 'preloader' or 'loader #'..i
       return l(mod)
     end
   end
