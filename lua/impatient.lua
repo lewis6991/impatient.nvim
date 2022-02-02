@@ -1,28 +1,30 @@
 local vim = vim
 local api = vim.api
 local uv = vim.loop
-
+local _loadfile = loadfile
 local get_runtime = api.nvim__get_runtime
 local fs_stat = uv.fs_stat
+local mpack = vim.mpack
 
-local impatient_start = uv.hrtime()
-local impatient_dur
+local appdir = os.getenv('APPDIR')
 
 local M = {
-  cache = {},
-  profile = nil,
-  dirty = false,
-  path = vim.fn.stdpath('cache')..'/luacache',
+  chunks = {
+    cache = {},
+    profile = nil,
+    dirty = false,
+    path = vim.fn.stdpath('cache')..'/luacache_chunks',
+  },
+  modpaths = {
+    cache = {},
+    profile = nil,
+    dirty = false,
+    path = vim.fn.stdpath('cache')..'/luacache_modpaths',
+  },
   log = {}
 }
 
-if _G.use_cachepack == nil then
-  _G.use_cachepack = not (vim.mpack and vim.mpack.encode)
-end
-
 _G.__luacache = M
-
-local mpack = _G.use_cachepack and require('impatient.cachepack') or vim.mpack
 
 if not get_runtime then
   -- nvim 0.5 compat
@@ -49,23 +51,15 @@ function M.print_log()
 end
 
 function M.enable_profile()
-  local ip = require('impatient.profile')
+  local P = require('impatient.profile')
 
-  M.profile = {}
-  ip.mod_require(M.profile)
+  M.chunks.profile = {}
+  M.modpaths.profile = {}
 
-  M.mark_resolve = function(mod, loader)
-    local mp = M.profile[mod]
-    mp.resolve_end = uv.hrtime()
-    mp.loader  = loader
-  end
+  P.setup(M.modpaths.profile)
 
   M.print_profile = function()
-    M.profile['impatient'] = {
-      exec   = impatient_dur,
-      loader = 'standard'
-    }
-    ip.print_profile(M.profile)
+    P.print_profile(M)
   end
 
   vim.cmd[[command! LuaCacheProfile lua _G.__luacache.print_profile()]]
@@ -77,8 +71,6 @@ local function hash(modpath)
     return stat.mtime.sec
   end
 end
-
-local appdir = os.getenv('APPDIR')
 
 local function modpath_mangle(modpath)
   if appdir then
@@ -94,14 +86,35 @@ local function modpath_unmangle(modpath)
   return modpath
 end
 
-local function get_lua_runtime_file(basename, paths)
-  -- Look in the cache to see if we have already loaded the parent module.
-  -- If we have then try looking in the parents dir first.
+local function profile(m, entry, name, loader)
+  if m.profile then
+    local mp = m.profile
+    mp[entry] = mp[entry] or {}
+    if not mp[entry].loader and loader then
+      mp[entry].loader = loader
+    end
+    if not mp[entry][name] then
+      mp[entry][name] = uv.hrtime()
+    end
+  end
+end
+
+local function mprofile(mod, name, loader)
+  profile(M.modpaths, mod, name, loader)
+end
+
+local function cprofile(path, name, loader)
+  profile(M.chunks, path, name, loader)
+end
+
+local function get_runtime_file(basename, paths)
+  -- Look in the cache to see if we have already loaded a parent module.
+  -- If we have then try looking in the parents directory first.
   local parents = vim.split(basename, '/')
   for i = #parents, 1, -1 do
     local parent = table.concat(vim.list_slice(parents, 1, i), '/')
-    if M.cache[parent] then
-      local ppath = M.cache[parent][1]
+    local ppath = M.modpaths.cache[parent]
+    if ppath then
       if ppath:sub(-9) == '/init.lua' then
         ppath = ppath:sub(1, -10) -- a/b/init.lua -> a/b
       else
@@ -112,51 +125,110 @@ local function get_lua_runtime_file(basename, paths)
         -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
         local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
         if fs_stat(modpath) then
-          return modpath, true
+          return modpath, 'cache(p)'
         end
       end
     end
   end
 
   -- What Neovim does by default; slowest
-  return get_runtime(paths, false, {is_lua=true})[1]
+  local modpath = get_runtime(paths, false, {is_lua=true})[1]
+  return modpath, 'standard'
 end
 
-local function load_package_with_cache(name)
+local function get_runtime_file_cached(basename, paths)
+  local mp = M.modpaths
+  if mp.cache[basename] then
+    local modpath = mp.cache[basename]
+    if fs_stat(modpath) then
+      mprofile(basename, 'resolve_end', 'cache')
+      return modpath
+    end
+    mp.cache[basename] = nil
+    mp.dirty = true
+  end
+
+  local modpath, loader = get_runtime_file(basename, paths)
+  if modpath then
+    mprofile(basename, 'resolve_end', loader)
+    log('Creating cache for module %s', basename)
+    mp.cache[basename] = modpath_mangle(modpath)
+    mp.dirty = true
+  end
+  return modpath
+end
+
+local function extract_basename(pats)
+  local basename
+
+  -- Deconstruct basename from pats
+  for _, pat in ipairs(pats) do
+    for _, npat in ipairs{
+      -- Ordered by most specific
+      'lua/(.*)/init%.lua',
+      'lua/(.*)%.lua'
+    } do
+      local m = pat:match(npat)
+      if m and vim.endswith(m, 'init') then
+        m = m:sub(0, -6)
+      end
+      if not basename then
+        if m then
+          basename = m
+        end
+      elseif m and m ~= basename then
+        -- matches are inconsistent
+        return
+      end
+    end
+  end
+
+  return basename
+end
+
+local function get_runtime_cached(pats, all, opts)
+  local fallback = false
+  if all or not opts or not opts.is_lua then
+    -- Fallback
+    fallback = true
+  end
+
+  local basename
+
+  if not fallback then
+    basename = extract_basename(pats)
+  end
+
+  if fallback or not basename then
+    return get_runtime(pats, all, opts)
+  end
+
+  return {get_runtime_file_cached(basename, pats)}
+end
+
+-- Copied from neovim/src/nvim/lua/vim.lua with two lines changed
+local function load_package(name)
   local basename = name:gsub('%.', '/')
   local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
-  local modpath, cache_success = get_lua_runtime_file(basename, paths)
-  if modpath then
-    if M.mark_resolve then
-      local loader = cache_success and 'cached resolve'  or 'standard'
-      M.mark_resolve(basename, loader)
-    end
 
-    local chunk, err = loadfile(modpath)
-    if chunk == nil then
-      error(err)
-    end
-
-    log('Creating cache for module %s', basename)
-    M.cache[basename] = {modpath_mangle(modpath), hash(modpath), string.dump(chunk)}
-    M.dirty = true
-
-    return chunk
+  -- Original line:
+  -- local found = vim.api.nvim__get_runtime(paths, false, {is_lua=true})
+  local found = {get_runtime_file_cached(basename, paths)}
+  if #found > 0 then
+    local f, err = loadfile(found[1])
+    return f or error(err)
   end
 
   local so_paths = {}
   for _,trail in ipairs(vim._so_trails) do
     local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
-    so_paths[#so_paths+1] = path
+    table.insert(so_paths, path)
   end
 
-  -- Copied from neovim/src/nvim/lua/vim.lua
-  local found = get_runtime(so_paths, false, {is_lua=true})
-  if found[1] then
-    if M.mark_resolve then
-      M.mark_resolve(basename, 'standard(so)')
-    end
-
+  -- Original line:
+  -- found = vim.api.nvim__get_runtime(so_paths, false, {is_lua=true})
+  found = {get_runtime_file_cached(basename, so_paths)}
+  if #found > 0 then
     -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
     -- a) strip prefix up to and including the first dash, if any
     -- b) replace all dots by underscores
@@ -167,91 +239,109 @@ local function load_package_with_cache(name)
     local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
     return f or error(err)
   end
-
   return nil
 end
 
-local function load_from_cache(name)
-  local basename = name:gsub('%.', '/')
+local function load_from_cache(path)
+  local mc = M.chunks
 
-  if M.cache[basename] == nil then
-    log('No cache for module %s', basename)
-    return 'No cache entry'
+  if not mc.cache[path] then
+    return nil, string.format('No cache for path %s', path)
   end
 
-  local modpath, mhash, codes = unpack(M.cache[basename])
+  local mhash, codes = unpack(mc.cache[path])
 
-  if mhash ~= hash(modpath_unmangle(modpath)) then
-    log('Stale cache for module %s', basename)
-    M.cache[basename] = nil
-    M.dirty = true
-    return 'Stale cache'
-  end
-
-  if M.mark_resolve then
-    M.mark_resolve(basename, 'cache')
+  if mhash ~= hash(modpath_unmangle(path)) then
+    mc.cache[path] = nil
+    mc.dirty = true
+    return nil, string.format('Stale cache for path %s', path)
   end
 
   local chunk = loadstring(codes)
 
   if not chunk then
-    M.cache[basename] = nil
-    M.dirty = true
-    log('Error loading cache for module. Invalidating', basename)
-    return 'Cache error'
+    mc.cache[path] = nil
+    mc.dirty = true
+    return nil, string.format('Cache error for path %s', path)
   end
 
   return chunk
 end
 
-function M.save_cache()
-  if M.dirty then
-    log('Updating cache file: %s', M.path)
-    local f = io.open(M.path, 'w+b')
-    f:write(mpack.encode(M.cache))
-    f:flush()
-    M.dirty = false
+local function loadfile_cached(path)
+  cprofile(path, 'load_start')
+
+  local chunk, err  = load_from_cache(path)
+  if chunk and not err then
+    log('Loaded cache for path %s', path)
+    cprofile(path, 'load_end', 'cache')
+    return chunk
   end
+  log(err)
+
+  chunk, err = _loadfile(path)
+
+  log('Creating cache for path %s', path)
+  M.chunks.cache[modpath_mangle(path)] = {hash(path), string.dump(chunk)}
+  M.chunks.dirty = true
+
+  cprofile(path, 'load_end', 'standard')
+  return chunk, err
+end
+
+function M.save_cache()
+  local function _save_cache(t)
+    if t.dirty then
+      log('Updating chunk cache file: %s', t.path)
+      local f = io.open(t.path, 'w+b')
+      f:write(mpack.encode(t.cache))
+      f:flush()
+      t.dirty = false
+    end
+  end
+  _save_cache(M.chunks)
+  _save_cache(M.modpaths)
 end
 
 function M.clear_cache()
-  M.cache = {}
-  os.remove(M.path)
+  local function _clear_cache(t)
+    t.cache = {}
+    os.remove(t.path)
+  end
+  _clear_cache(M.chunks)
+  _clear_cache(M.modpaths)
 end
 
 local function init_cache()
-  if fs_stat(M.path) then
-    log('Loading cache file %s', M.path)
-    local f = io.open(M.path, 'rb')
-    local ok
-    ok, M.cache = pcall(function()
-      return mpack.decode(f:read'*a')
-    end)
+  local function _init_cache(t)
+    if fs_stat(t.path) then
+      log('Loading cache file %s', t.path)
+      local f = io.open(t.path, 'rb')
+      local ok
+      ok, t.cache = pcall(function()
+        return mpack.decode(f:read'*a')
+      end)
 
-    if not ok then
-      log('Corrupted cache file, %s. Invalidating...', M.path)
-      os.remove(M.path)
-      M.cache = {}
+      if not ok then
+        log('Corrupted cache file, %s. Invalidating...', t.path)
+        os.remove(t.path)
+        t.cache = {}
+      end
+      t.dirty = not ok
     end
-    M.dirty = not ok
   end
+
+  _init_cache(M.chunks)
+  _init_cache(M.modpaths)
 end
 
 local function setup()
   init_cache()
 
-  local insert = table.insert
-  local package = package
-
-  -- Fix the position of the preloader. This also makes loading modules like 'ffi'
-  -- and 'bit' quicker
-  if package.loaders[1] == vim._load_package then
-    -- Remove vim._load_package and replace with our version
-    table.remove(package.loaders, 1)
-  end
-
-  insert(package.loaders, 2, load_from_cache)
-  insert(package.loaders, 3, load_package_with_cache)
+  -- Override default functions
+  vim._load_package  = load_package
+  vim.api.nvim__get_runtime = get_runtime_cached
+  loadfile = loadfile_cached
 
   vim.cmd[[
     augroup impatient
@@ -265,7 +355,5 @@ local function setup()
 end
 
 setup()
-
-impatient_dur = uv.hrtime() - impatient_start
 
 return M

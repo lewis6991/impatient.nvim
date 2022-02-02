@@ -5,129 +5,243 @@ local exec_lua = helpers.exec_lua
 local eq       = helpers.eq
 local cmd      = helpers.command
 
-local gen_exp = function(use_cachepack)
-  local nvim05 = exec_lua('return vim.version().minor') == 5
-  local exp = {
-    'No cache for module plugins',
-    'Creating cache for module plugins',
-    'No cache for module telescope',
-    'Creating cache for module telescope',
-    'No cache for module telescope/_extensions',
-    'Creating cache for module telescope/_extensions',
-    'No cache for module gitsigns',
-    'Creating cache for module gitsigns',
-    'No cache for module plenary/async/async',
-    'Creating cache for module plenary/async/async',
-    'No cache for module plenary/vararg',
-    'Creating cache for module plenary/vararg',
-    'No cache for module plenary/vararg/rotate',
-    'Creating cache for module plenary/vararg/rotate',
-    'No cache for module plenary/tbl',
-    'Creating cache for module plenary/tbl',
-    'No cache for module plenary/errors',
-    'Creating cache for module plenary/errors',
-    'No cache for module plenary/functional',
-    'Creating cache for module plenary/functional',
-    'No cache for module plenary/async/util',
-    'Creating cache for module plenary/async/util',
-    'No cache for module plenary/async/control',
-    'Creating cache for module plenary/async/control',
-    'No cache for module plenary/async/structs',
-    'Creating cache for module plenary/async/structs',
-    'No cache for module gitsigns/status',
-    'Creating cache for module gitsigns/status',
-    'No cache for module gitsigns/git',
-    'Creating cache for module gitsigns/git',
-    'No cache for module plenary/job',
-    'Creating cache for module plenary/job',
-    'No cache for module gitsigns/debug',
-    'Creating cache for module gitsigns/debug',
-    'No cache for module gitsigns/util',
-    'Creating cache for module gitsigns/util',
-    'No cache for module gitsigns/hunks',
-    'Creating cache for module gitsigns/hunks',
-    'No cache for module gitsigns/signs',
-    'Creating cache for module gitsigns/signs',
-    'No cache for module gitsigns/config',
-    'Creating cache for module gitsigns/config',
-    'No cache for module gitsigns/manager',
-    'Creating cache for module gitsigns/manager',
-    'No cache for module gitsigns/cache',
-    'Creating cache for module gitsigns/cache',
-    'No cache for module gitsigns/debounce',
-    'Creating cache for module gitsigns/debounce',
-    'No cache for module gitsigns/highlight',
-    'Creating cache for module gitsigns/highlight',
-    'No cache for module spellsitter',
-    'Creating cache for module spellsitter',
-    'No cache for module vim/treesitter/query',
-    'Creating cache for module vim/treesitter/query',
-    'No cache for module vim/treesitter/language',
-    'Creating cache for module vim/treesitter/language',
-    'No cache for module vim/treesitter',
-    'Creating cache for module vim/treesitter',
-    'No cache for module vim/treesitter/languagetree',
-    'Creating cache for module vim/treesitter/languagetree',
-    'No cache for module colorizer',
-    'Creating cache for module colorizer',
-    'No cache for module colorizer/nvim',
-    'Creating cache for module colorizer/nvim',
-    'No cache for module colorizer/trie',
-    'Creating cache for module colorizer/trie',
-    'No cache for module lspconfig',
-    'Creating cache for module lspconfig',
-    'No cache for module lspconfig/configs',
-    'Creating cache for module lspconfig/configs',
-    'No cache for module lspconfig/util',
-    'Creating cache for module lspconfig/util',
-    (use_cachepack or not nvim05) and 'No cache for module vim/uri',
-    (use_cachepack or not nvim05) and 'Creating cache for module vim/uri',
-    'No cache for module vim/lsp',
-    'Creating cache for module vim/lsp',
-    nvim05 and 'No cache for module vim/F',
-    nvim05 and 'Creating cache for module vim/F',
-    'No cache for module vim/lsp/handlers',
-    'Creating cache for module vim/lsp/handlers',
-    'No cache for module vim/lsp/log',
-    'Creating cache for module vim/lsp/log',
-    'No cache for module vim/lsp/protocol',
-    'Creating cache for module vim/lsp/protocol',
-    'No cache for module vim/lsp/util',
-    'Creating cache for module vim/lsp/util',
-    not nvim05 and 'No cache for module vim/lsp/_snippet',
-    not nvim05 and 'Creating cache for module vim/lsp/_snippet',
-    'No cache for module vim/highlight',
-    'Creating cache for module vim/highlight',
-    not nvim05 and 'No cache for module vim/lsp/rpc',
-    not nvim05 and 'Creating cache for module vim/lsp/rpc',
-    not nvim05 and 'No cache for module vim/lsp/sync',
-    not nvim05 and 'Creating cache for module vim/lsp/sync',
-    'No cache for module vim/lsp/buf',
-    'Creating cache for module vim/lsp/buf',
-    nvim05 and 'No cache for module vim/lsp/rpc',
-    nvim05 and 'Creating cache for module vim/lsp/rpc',
-    'No cache for module vim/lsp/diagnostic',
-    'Creating cache for module vim/lsp/diagnostic',
-    'No cache for module vim/lsp/codelens',
-    'Creating cache for module vim/lsp/codelens',
-    'No cache for module bufferline',
-    'Creating cache for module bufferline',
-    'No cache for module bufferline/constants',
-    'Creating cache for module bufferline/constants',
-    'No cache for module bufferline/utils',
-    'Creating cache for module bufferline/utils',
-    'Updating cache file: scratch/cache/nvim/luacache'
-  }
+local function gen_exp(exp)
+  local nvim06 = exec_lua('return vim.version().minor') == 6
+  local neovim_dir = nvim06 and 'neovim-v0.6.0' or 'neovim-master'
+  local cwd = exec_lua('return vim.loop.cwd()')
 
-  -- Realign table
   local exp1 = {}
   for _, v in pairs(exp) do
     if type(v) == 'string' then
+      v = v:gsub('{CWD}', cwd)
+      v = v:gsub('{NVIM}', neovim_dir)
       exp1[#exp1+1] = v
     end
   end
 
   return exp1
+end
+
+local gen_exp_cold = function()
+  return gen_exp{
+    'Creating cache for module plugins',
+    'No cache for path ./test/lua/plugins.lua',
+    'Creating cache for path ./test/lua/plugins.lua',
+    'Creating cache for module telescope',
+    'No cache for path {CWD}/scratch/telescope.nvim/lua/telescope/init.lua',
+    'Creating cache for path {CWD}/scratch/telescope.nvim/lua/telescope/init.lua',
+    'Creating cache for module telescope/_extensions',
+    'No cache for path {CWD}/scratch/telescope.nvim/lua/telescope/_extensions/init.lua',
+    'Creating cache for path {CWD}/scratch/telescope.nvim/lua/telescope/_extensions/init.lua',
+    'Creating cache for module gitsigns',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns.lua',
+    'Creating cache for module plenary/async/async',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/async.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/async.lua',
+    'Creating cache for module plenary/vararg',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/init.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/init.lua',
+    'Creating cache for module plenary/vararg/rotate',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/rotate.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/rotate.lua',
+    'Creating cache for module plenary/tbl',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/tbl.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/tbl.lua',
+    'Creating cache for module plenary/errors',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/errors.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/errors.lua',
+    'Creating cache for module plenary/functional',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/functional.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/functional.lua',
+    'Creating cache for module plenary/async/util',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/util.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/util.lua',
+    'Creating cache for module plenary/async/control',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/control.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/control.lua',
+    'Creating cache for module plenary/async/structs',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/structs.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/structs.lua',
+    'Creating cache for module gitsigns/status',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/status.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/status.lua',
+    'Creating cache for module gitsigns/git',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/git.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/git.lua',
+    'Creating cache for module plenary/job',
+    'No cache for path {CWD}/scratch/plenary.nvim/lua/plenary/job.lua',
+    'Creating cache for path {CWD}/scratch/plenary.nvim/lua/plenary/job.lua',
+    'Creating cache for module gitsigns/debug',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debug.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debug.lua',
+    'Creating cache for module gitsigns/util',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/util.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/util.lua',
+    'Creating cache for module gitsigns/hunks',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/hunks.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/hunks.lua',
+    'Creating cache for module gitsigns/signs',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/signs.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/signs.lua',
+    'Creating cache for module gitsigns/config',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/config.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/config.lua',
+    'Creating cache for module gitsigns/manager',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/manager.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/manager.lua',
+    'Creating cache for module gitsigns/cache',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/cache.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/cache.lua',
+    'Creating cache for module gitsigns/debounce',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debounce.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debounce.lua',
+    'Creating cache for module gitsigns/highlight',
+    'No cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/highlight.lua',
+    'Creating cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/highlight.lua',
+    'Creating cache for module spellsitter',
+    'No cache for path {CWD}/scratch/spellsitter.nvim/lua/spellsitter.lua',
+    'Creating cache for path {CWD}/scratch/spellsitter.nvim/lua/spellsitter.lua',
+    'Creating cache for module vim/treesitter/query',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/query.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/query.lua',
+    'Creating cache for module vim/treesitter/language',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/language.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/language.lua',
+    'Creating cache for module vim/treesitter',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter.lua',
+    'Creating cache for module vim/treesitter/languagetree',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/languagetree.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/languagetree.lua',
+    'Creating cache for module colorizer',
+    'No cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer.lua',
+    'Creating cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer.lua',
+    'Creating cache for module colorizer/nvim',
+    'No cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/nvim.lua',
+    'Creating cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/nvim.lua',
+    'Creating cache for module colorizer/trie',
+    'No cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/trie.lua',
+    'Creating cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/trie.lua',
+    'Creating cache for module lspconfig',
+    'No cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig.lua',
+    'Creating cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig.lua',
+    'Creating cache for module lspconfig/configs',
+    'No cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/configs.lua',
+    'Creating cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/configs.lua',
+    'Creating cache for module lspconfig/util',
+    'No cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
+    'Creating cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
+    'Creating cache for module vim/uri',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    'Creating cache for module vim/lsp',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
+    'Creating cache for module vim/lsp/handlers',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/handlers.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/handlers.lua',
+    'Creating cache for module vim/lsp/log',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/log.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/log.lua',
+    'Creating cache for module vim/lsp/protocol',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/protocol.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/protocol.lua',
+    'Creating cache for module vim/lsp/util',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/util.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/util.lua',
+    'Creating cache for module vim/lsp/_snippet',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/_snippet.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/_snippet.lua',
+    'Creating cache for module vim/highlight',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/highlight.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/highlight.lua',
+    'Creating cache for module vim/lsp/rpc',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/rpc.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/rpc.lua',
+    'Creating cache for module vim/lsp/sync',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/sync.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/sync.lua',
+    'Creating cache for module vim/lsp/buf',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/buf.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/buf.lua',
+    'Creating cache for module vim/lsp/diagnostic',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/diagnostic.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/diagnostic.lua',
+    'Creating cache for module vim/lsp/codelens',
+    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/codelens.lua',
+    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/codelens.lua',
+    'Creating cache for module bufferline',
+    'No cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline.lua',
+    'Creating cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline.lua',
+    'Creating cache for module bufferline/constants',
+    'No cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/constants.lua',
+    'Creating cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/constants.lua',
+    'Creating cache for module bufferline/utils',
+    'No cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/utils.lua',
+    'Creating cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/utils.lua',
+    'Updating chunk cache file: scratch/cache/nvim/luacache_chunks',
+    'Updating chunk cache file: scratch/cache/nvim/luacache_modpaths'
+  }
+end
+
+local gen_exp_hot = function()
+  return gen_exp{
+    'Loading cache file scratch/cache/nvim/luacache_chunks',
+    'Loading cache file scratch/cache/nvim/luacache_modpaths',
+    'Loaded cache for path ./test/lua/plugins.lua',
+    'Loaded cache for path {CWD}/scratch/telescope.nvim/lua/telescope/init.lua',
+    'Loaded cache for path {CWD}/scratch/telescope.nvim/lua/telescope/_extensions/init.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/async.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/init.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/vararg/rotate.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/tbl.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/errors.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/functional.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/util.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/control.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/async/structs.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/status.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/git.lua',
+    'Loaded cache for path {CWD}/scratch/plenary.nvim/lua/plenary/job.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debug.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/util.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/hunks.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/signs.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/config.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/manager.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/cache.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/debounce.lua',
+    'Loaded cache for path {CWD}/scratch/gitsigns.nvim/lua/gitsigns/highlight.lua',
+    'Loaded cache for path {CWD}/scratch/spellsitter.nvim/lua/spellsitter.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/query.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/language.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/treesitter/languagetree.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/nvim.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-colorizer.lua/lua/colorizer/trie.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/configs.lua',
+    'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/handlers.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/log.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/protocol.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/util.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/_snippet.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/highlight.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/rpc.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/sync.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/buf.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/diagnostic.lua',
+    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/codelens.lua',
+    'Loaded cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline.lua',
+    'Loaded cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/constants.lua',
+    'Loaded cache for path {CWD}/scratch/bufferline.nvim/lua/bufferline/utils.lua'
+  }
 end
 
 describe('impatient', function()
@@ -146,71 +260,23 @@ describe('impatient', function()
     exec_lua([[require('plugins')]])
   end)
 
-  local function tests(use_cachepack)
-    local function run()
-      if use_cachepack then
-        exec_lua[[_G.use_cachepack = true]]
-      end
-      exec_lua[[
-        require('impatient')
-        require('plugins')
-        _G.__luacache.save_cache()
-      ]]
-    end
-
-    it('creates cache', function()
-      os.execute[[rm -rf scratch/cache]]
-      run()
-      eq(gen_exp(use_cachepack), exec_lua("return _G.__luacache.log"))
-    end)
-
-    it('loads cache', function()
-      run()
-
-      eq({ 'Loading cache file scratch/cache/nvim/luacache' },
-        exec_lua("return _G.__luacache.log"))
-
-      if use_cachepack then
-        assert(exec_lua("return _G.package.loaded['impatient.cachepack'] ~= nil"))
-      end
-    end)
+  local function run()
+    exec_lua[[
+      require('impatient')
+      require('plugins')
+      _G.__luacache.save_cache()
+    ]]
   end
 
-  describe('using mpack', function()
-    tests(false)
-  end)
-
-  describe('using cachepack', function()
-    tests(true)
-  end)
-
-  it('shouldn\'t be slow when loading missing modules', function()
+  it('creates cache', function()
     os.execute[[rm -rf scratch/cache]]
+    run()
+    eq(gen_exp_cold(), exec_lua("return _G.__luacache.log"))
+  end)
 
-    local total_vim_load_dur = 0
-    local total_imp_load_dur = 0
-
-    local function load_no_exist_mod()
-      return exec_lua[[
-        local a = vim.loop.hrtime()
-        pcall(require, 'does.not.exist')
-        return (vim.loop.hrtime() - a)/1e6
-      ]]
-    end
-
-    for _ = 1, 20 do
-      reset()
-      local vim_load_dur = load_no_exist_mod()
-      total_vim_load_dur = total_vim_load_dur + vim_load_dur
-      exec_lua[[require('impatient')]]
-      local imp_load_dur = load_no_exist_mod()
-      total_imp_load_dur = total_imp_load_dur + imp_load_dur
-    end
-
-    local threshold = 1.4 * total_vim_load_dur
-
-    assert(total_imp_load_dur < threshold,
-      string.format('%f > %f', total_imp_load_dur, threshold))
+  it('loads cache', function()
+    run()
+    eq(gen_exp_hot(), exec_lua("return _G.__luacache.log"))
   end)
 
 end)
