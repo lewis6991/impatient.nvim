@@ -163,13 +163,13 @@ local function extract_basename(pats)
 
   -- Deconstruct basename from pats
   for _, pat in ipairs(pats) do
-    for _, npat in ipairs{
+    for i, npat in ipairs{
       -- Ordered by most specific
       'lua/(.*)/init%.lua',
       'lua/(.*)%.lua'
     } do
       local m = pat:match(npat)
-      if m and vim.endswith(m, 'init') then
+      if i == 2 and m and m:sub(-4) == 'init' then
         m = m:sub(0, -6)
       end
       if not basename then
