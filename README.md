@@ -760,7 +760,7 @@ Total resolve: 6.357ms, total load: 6.796ms
 
 [fix(lua): restore priority of the preloader](https://github.com/neovim/neovim/pull/17302) [merged]
 
-[refactor(lua): call loadfile internally instead of luaL_loadfile](https://github.com/neovim/neovim/pull/17200)
+[refactor(lua): call loadfile internally instead of luaL_loadfile](https://github.com/neovim/neovim/pull/17200) [merged]
 
 [feat(lua): startup profiling](https://github.com/neovim/neovim/pull/15436)
 
