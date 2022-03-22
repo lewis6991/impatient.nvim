@@ -10,7 +10,10 @@ This plugin does several things to speed loading Lua modules and files.
 
 ### Implements a chunk cache
 
-This is done by using `loadstring` to compile the Lua modules to bytecode and stores them in a cache file. The cache is invalidated using the modified time of each modules file path.
+This is done by using `loadstring` to compile the Lua modules to bytecode and stores them in a cache file. The cache is invalidated using as hash consisting of:
+
+- The modified time (`sec` and `nsec`) of the file path.
+- The file size.
 
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache_chunks`.
 

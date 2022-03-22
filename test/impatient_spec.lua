@@ -5,8 +5,9 @@ local exec_lua = helpers.exec_lua
 local eq       = helpers.eq
 local cmd      = helpers.command
 
+local nvim06
+
 local function gen_exp(exp)
-  local nvim06 = exec_lua('return vim.version().minor') == 6
   local neovim_dir = nvim06 and 'neovim-v0.6.0' or 'neovim-master'
   local cwd = exec_lua('return vim.loop.cwd()')
 
@@ -132,9 +133,9 @@ local gen_exp_cold = function()
     'Creating cache for module lspconfig/util',
     'No cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
     'Creating cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
-    'Creating cache for module vim/uri',
-    'No cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
-    'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    nvim06 and 'Creating cache for module vim/uri',
+    nvim06 and 'No cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    nvim06 and 'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
     'Creating cache for module vim/lsp',
     'No cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
     'Creating cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
@@ -225,7 +226,7 @@ local gen_exp_hot = function()
     'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig.lua',
     'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/configs.lua',
     'Loaded cache for path {CWD}/scratch/nvim-lspconfig/lua/lspconfig/util.lua',
-    'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
+    nvim06 and 'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/uri.lua',
     'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp.lua',
     'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/handlers.lua',
     'Loaded cache for path {CWD}/{NVIM}/runtime/lua/vim/lsp/log.lua',
@@ -247,6 +248,7 @@ end
 describe('impatient', function()
   local function reset()
     clear()
+    nvim06 = exec_lua('return vim.version().minor') == 6
     cmd [[set runtimepath=$VIMRUNTIME,.,./test]]
     cmd [[let $XDG_CACHE_HOME='scratch/cache']]
     cmd [[set packpath=]]

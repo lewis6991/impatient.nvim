@@ -68,8 +68,9 @@ end
 local function hash(modpath)
   local stat = fs_stat(modpath)
   if stat then
-    return stat.mtime.sec
+    return stat.mtime.sec..stat.mtime.nsec..stat.size
   end
+  error('Could not hash '..modpath)
 end
 
 local function modpath_mangle(modpath)
