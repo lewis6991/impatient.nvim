@@ -35,6 +35,18 @@ local function time_tostr(x)
   return string.format('%8.3fms', x)
 end
 
+local function mem_tostr(x)
+  local unit = ''
+  for _, u in ipairs{'K', 'M', 'G'} do
+    if x < 1000 then
+      break
+    end
+    x = x / 1000
+    unit = u
+  end
+  return string.format('%1.1f%s', x, unit)
+end
+
 function M.print_profile(I)
   local mod_profile = I.modpaths.profile
   local chunk_profile = I.chunks.profile
@@ -156,6 +168,13 @@ function M.print_profile(I)
 
   add('Note: this report is not a measure of startup time. Only use this for comparing')
   add('between cached and uncached loads of Lua modules')
+  add('')
+
+  add('Cache files:')
+  for _, f in ipairs{ I.chunks.path, I.modpaths.path } do
+    local size = vim.loop.fs_stat(f).size
+    add('  %s %s', f, mem_tostr(size))
+  end
   add('')
 
   add('%s─%s┬%s─%s┐', tcwl, lcwl, tcwl, lcwl)
