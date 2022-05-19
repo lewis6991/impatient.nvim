@@ -368,7 +368,14 @@ local function setup()
   init_cache()
 
   -- Override default functions
-  vim._load_package  = load_package
+  for i, loader in ipairs(package.loaders) do
+    if loader == vim._load_package then
+      package.loaders[i] = load_package
+      break
+    end
+  end
+  vim._load_package = load_package
+
   vim.api.nvim__get_runtime = get_runtime_cached
   loadfile = loadfile_cached
 
