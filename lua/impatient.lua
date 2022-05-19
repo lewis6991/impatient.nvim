@@ -61,20 +61,6 @@ local M = {
 
 _G.__luacache = M
 
-if not get_runtime then
-  -- nvim 0.5 compat
-  get_runtime = function(paths, all, _)
-    local r = {}
-    for _, path in ipairs(paths) do
-      local found = api.nvim_get_runtime_file(path, all)
-      for i = 1, #found do
-        r[#r+1] = found[i]
-      end
-    end
-    return r
-  end
-end
-
 local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
 end
