@@ -346,6 +346,10 @@ local function init_cache()
     end
   end
 
+  if not uv.fs_stat(std_cache) then
+    vim.fn.mkdir(std_cache, 'p')
+  end
+
   _init_cache(M.chunks)
   _init_cache(M.modpaths)
 end
