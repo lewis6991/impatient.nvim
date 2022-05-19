@@ -2,10 +2,6 @@ local M = {}
 
 local api, uv = vim.api, vim.loop
 
-local std_data = vim.fn.stdpath('data')
-local std_config = vim.fn.stdpath('config')
-local vimruntime = os.getenv('VIMRUNTIME')
-
 local function load_buffer(title, lines)
   local bufnr = api.nvim_create_buf(false, false)
   api.nvim_buf_set_lines(bufnr, 0, 0, false, lines)
@@ -15,17 +11,6 @@ local function load_buffer(title, lines)
   api.nvim_buf_set_option(bufnr, "modifiable", false)
   api.nvim_buf_set_name(bufnr, title)
   api.nvim_set_current_buf(bufnr)
-end
-
-local function mod_path(path)
-  if not path then
-    return '?'
-  end
-  path = path:gsub(std_data..'/site/pack/packer/', '<PACKER>/')
-  path = path:gsub(std_data..'/', '<STD_DATA>/')
-  path = path:gsub(std_config..'/', '<STD_CONFIG>/')
-  path = path:gsub(vimruntime..'/', '<VIMRUNTIME>/')
-  return path
 end
 
 local function time_tostr(x)
@@ -63,7 +48,7 @@ function M.print_profile(I)
   for path, m in pairs(chunk_profile) do
     m.load = m.load_end - m.load_start
     m.load = m.load / 1000000
-    m.path = mod_path(path)
+    m.path = path or '?'
   end
 
   local module_content_width = 0
@@ -80,7 +65,7 @@ function M.print_profile(I)
 
     local path = I.modpaths.cache[module]
     local path_prof = chunk_profile[path]
-    m.path = mod_path(path)
+    m.path = path or '?'
 
     if path_prof then
       chunk_profile[path] = nil
