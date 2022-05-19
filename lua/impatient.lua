@@ -308,7 +308,7 @@ function M.save_cache()
   local function _save_cache(t)
     if t.dirty then
       log('Updating chunk cache file: %s', t.path)
-      local f = io.open(t.path, 'w+b')
+      local f = assert(io.open(t.path, 'w+b'))
       f:write(mpack.encode(t.cache))
       f:flush()
       t.dirty = false
@@ -331,7 +331,7 @@ local function init_cache()
   local function _init_cache(t)
     if fs_stat(t.path) then
       log('Loading cache file %s', t.path)
-      local f = io.open(t.path, 'rb')
+      local f = assert(io.open(t.path, 'rb'))
       local ok
       ok, t.cache = pcall(function()
         return mpack.decode(f:read'*a')
