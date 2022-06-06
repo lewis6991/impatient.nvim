@@ -23,6 +23,10 @@ This is done by maintaining a table of module name to path. The cache is invalid
 
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache_modpaths`.
 
+**Note**: This optimization breaks the loading order guarantee of the paths in `'runtimepath'`.
+If you rely on this ordering then you can disable this cache (`_G.__luacache_config = { modpath = { enable = false } }`.
+See configuration below for more details.
+
 ## Requirements
 
 - Neovim v0.6.0
@@ -60,6 +64,27 @@ View profiling data. To enable, Impatient must be setup with:
 
 ```viml
 lua require'impatient'.enable_profile()
+```
+
+## Configuration
+
+Unlike most plugins which provide a `setup()` function, Impatient uses a configuration table stored in the global state, `_G.__luacache_config`.
+This must be populated before `require('impatient')` is run.
+
+Example:
+
+```lua
+_G.__luacache_config = {
+  chunks = {
+    enable = true,
+    path = vim.fn.stdpath('cache')..'/luacache_chunks',
+  },
+  modpaths = {
+    enable = true,
+    path = vim.fn.stdpath('cache')..'/luacache_modpaths',
+  }
+}
+require('impatient')
 ```
 
 ## Performance Example

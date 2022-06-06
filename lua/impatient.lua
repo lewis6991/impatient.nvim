@@ -29,12 +29,24 @@ local function modpath_unmangle(modpath)
   return modpath
 end
 
-local M = {
+-- Overridable by user
+local default_config = {
+  chunks = {
+    enable = true,
+    path = std_cache..'/luacache_chunks',
+  },
+  modpaths = {
+    enable = true,
+    path = std_cache..'/luacache_modpaths',
+  },
+}
+
+-- State used internally
+local default_state = {
   chunks = {
     cache = {},
     profile = nil,
     dirty = false,
-    path = std_cache..'/luacache_chunks',
     get = function(self, path)
       return self.cache[modpath_mangle(path)]
     end,
@@ -46,7 +58,6 @@ local M = {
     cache = {},
     profile = nil,
     dirty = false,
-    path = std_cache..'/luacache_modpaths',
     get = function(self, mod)
       if self.cache[mod] then
         return modpath_unmangle(self.cache[mod])
@@ -59,6 +70,8 @@ local M = {
   log = {}
 }
 
+---@diagnostic disable-next-line: undefined-field
+local M = vim.tbl_deep_extend('keep', _G.__luacache_config or {}, default_config, default_state)
 _G.__luacache = M
 
 local function log(...)
@@ -118,7 +131,7 @@ local function cprofile(path, name, loader)
   profile(M.chunks, path, name, loader)
 end
 
-local function get_runtime_file(basename, paths)
+local function get_runtime_file_from_parent(basename, paths)
   -- Look in the cache to see if we have already loaded a parent module.
   -- If we have then try looking in the parents directory first.
   local parents = vim.split(basename, '/')
@@ -141,31 +154,42 @@ local function get_runtime_file(basename, paths)
       end
     end
   end
-
-  -- What Neovim does by default; slowest
-  local modpath = get_runtime(paths, false, {is_lua=true})[1]
-  return modpath, 'standard'
 end
 
 local function get_runtime_file_cached(basename, paths)
+  local modpath, loader
   local mp = M.modpaths
-  if mp.cache[basename] then
-    local modpath = mp:get(basename)
-    if fs_stat(modpath) then
-      mprofile(basename, 'resolve_end', 'cache')
-      return modpath
+  if mp.enable then
+    if mp.cache[basename] then
+      local modpath_cached = mp:get(basename)
+      if fs_stat(modpath_cached) then
+        modpath, loader = modpath_cached, 'cache'
+      else
+        -- Invalidate
+        mp.cache[basename] = nil
+        mp.dirty = true
+      end
     end
-    mp.cache[basename] = nil
-    mp.dirty = true
+
+    if not modpath then
+      modpath, loader = get_runtime_file_from_parent(basename, paths)
+    end
   end
 
-  local modpath, loader = get_runtime_file(basename, paths)
+  if not modpath then
+    -- What Neovim does by default; slowest
+    modpath, loader = get_runtime(paths, false, {is_lua=true})[1], 'standard'
+  end
+
   if modpath then
     mprofile(basename, 'resolve_end', loader)
-    log('Creating cache for module %s', basename)
-    mp:set(basename, modpath)
-    mp.dirty = true
+    if mp.enable and loader ~= 'cache' then
+      log('Creating cache for module %s', basename)
+      mp:set(basename, modpath)
+      mp.dirty = true
+    end
   end
+
   return modpath
 end
 
@@ -284,17 +308,21 @@ end
 local function loadfile_cached(path)
   cprofile(path, 'load_start')
 
-  local chunk, err = load_from_cache(path)
-  if chunk and not err then
-    log('Loaded cache for path %s', path)
-    cprofile(path, 'load_end', 'cache')
-    return chunk
+  local chunk, err
+
+  if M.chunks.enable then
+    chunk, err = load_from_cache(path)
+    if chunk and not err then
+      log('Loaded cache for path %s', path)
+      cprofile(path, 'load_end', 'cache')
+      return chunk
+    end
+    log(err)
   end
-  log(err)
 
   chunk, err = _loadfile(path)
 
-  if not err then
+  if not err and M.chunks.enable then
     log('Creating cache for path %s', path)
     M.chunks:set(path, {hash(path), string.dump(chunk)})
     M.chunks.dirty = true
@@ -306,6 +334,9 @@ end
 
 function M.save_cache()
   local function _save_cache(t)
+    if not t.enable then
+      return
+    end
     if t.dirty then
       log('Updating chunk cache file: %s', t.path)
       local f = assert(io.open(t.path, 'w+b'))
@@ -329,6 +360,9 @@ end
 
 local function init_cache()
   local function _init_cache(t)
+    if not t.enable then
+      return
+    end
     if fs_stat(t.path) then
       log('Loading cache file %s', t.path)
       local f = assert(io.open(t.path, 'rb'))
