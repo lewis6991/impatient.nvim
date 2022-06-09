@@ -24,7 +24,7 @@ This is done by maintaining a table of module name to path. The cache is invalid
 The cache file is located in `$XDG_CACHE_HOME/nvim/luacache_modpaths`.
 
 **Note**: This optimization breaks the loading order guarantee of the paths in `'runtimepath'`.
-If you rely on this ordering then you can disable this cache (`_G.__luacache_config = { modpath = { enable = false } }`.
+If you rely on this ordering then you can disable this cache (`_G.__luacache_config = { modpaths = { enable = false } }`.
 See configuration below for more details.
 
 ## Requirements
