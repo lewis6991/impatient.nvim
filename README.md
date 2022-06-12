@@ -776,7 +776,7 @@ Total resolve: 54.337ms, total load: 34.257ms
 
 Total resolve: 6.357ms, total load: 6.796ms
 
-## Relevent Neovim PR's
+## Relevant Neovim PR's
 
 [libs: vendor libmpack and libmpack-lua](https://github.com/neovim/neovim/pull/15566) [merged]
 
