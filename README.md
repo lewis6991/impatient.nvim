@@ -29,7 +29,7 @@ See configuration below for more details.
 
 ## Requirements
 
-- Neovim v0.6.0
+- Neovim v0.7
 
 ## Installation
 
