@@ -93,7 +93,7 @@ function M.enable_profile()
   P.setup(M.modpaths.profile)
 
   api.nvim_create_user_command('LuaCacheProfile', function()
-    P.print_profile(M)
+    P.print_profile(M, std_dirs)
   end, {})
 end
 

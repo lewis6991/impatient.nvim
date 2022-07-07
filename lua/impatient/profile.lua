@@ -32,7 +32,7 @@ local function mem_tostr(x)
   return string.format('%1.1f%s', x, unit)
 end
 
-function M.print_profile(I)
+function M.print_profile(I, std_dirs)
   local mod_profile = I.modpaths.profile
   local chunk_profile = I.chunks.profile
 
@@ -170,6 +170,12 @@ function M.print_profile(I)
   end
   add('')
 
+  add('Standard directories:')
+  for alias, path in pairs(std_dirs) do
+    add('  %-12s -> %s', alias, path)
+  end
+  add('')
+
   add('%s─%s┬%s─%s┐', tcwl, lcwl, tcwl, lcwl)
   add(title1_fmt, 'Resolve', 'Load')
   add('%s┬%s┼%s┬%s┼%s┬%s', tcwl, lcwl, tcwl, lcwl, mcwl, n)
@@ -201,7 +207,7 @@ function M.print_profile(I)
   if #unloaded > 0 then
     add('')
     add(n)
-    add('Modules which where unable to loaded')
+    add('Modules which were unable to loaded')
     add(n)
     for _, p in ipairs(unloaded) do
       lines[#lines+1] = p.module
