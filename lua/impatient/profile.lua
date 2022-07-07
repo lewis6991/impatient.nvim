@@ -53,37 +53,45 @@ function M.print_profile(I)
 
   local module_content_width = 0
 
+  local unloaded = {}
+
   for module, m in pairs(mod_profile) do
-    m.resolve = 0
-    if m.resolve_end then
-      m.resolve = m.resolve_end - m.resolve_start
-      m.resolve = m.resolve / 1000000
-    end
+    local module_dot = module:gsub('/', '.')
+    m.module = module_dot
 
-    m.module  = module:gsub('/', '.')
-    m.loader = m.loader or m.loader_guess
-
-    local path = I.modpaths.cache[module]
-    local path_prof = chunk_profile[path]
-    m.path = path or '?'
-
-    if path_prof then
-      chunk_profile[path] = nil
-      m.load = path_prof.load
-      m.ploader = path_prof.loader
+    if not package.loaded[module_dot] and not package.loaded[module] then
+      unloaded[#unloaded+1] = m
     else
-      m.load = 0
-      m.ploader = 'NA'
+      m.resolve = 0
+      if m.resolve_start and m.resolve_end then
+        m.resolve = m.resolve_end - m.resolve_start
+        m.resolve = m.resolve / 1000000
+      end
+
+      m.loader = m.loader or m.loader_guess
+
+      local path = I.modpaths.cache[module]
+      local path_prof = chunk_profile[path]
+      m.path = path or '?'
+
+      if path_prof then
+        chunk_profile[path] = nil
+        m.load = path_prof.load
+        m.ploader = path_prof.loader
+      else
+        m.load = 0
+        m.ploader = 'NA'
+      end
+
+      total_resolve = total_resolve + m.resolve
+      total_load = total_load + m.load
+
+      if #module > module_content_width then
+        module_content_width = #module
+      end
+
+      modules[#modules+1] = m
     end
-
-    total_resolve = total_resolve + m.resolve
-    total_load = total_load + m.load
-
-    if #module > module_content_width then
-      module_content_width = #module
-    end
-
-    modules[#modules+1] = m
   end
 
   table.sort(modules, function(a, b)
@@ -188,7 +196,17 @@ function M.print_profile(I)
       add(f3, p.load, p.loader, p.path)
     end
     add('%s┴%s┴%s', tcwl, lcwl, n)
+  end
+
+  if #unloaded > 0 then
     add('')
+    add(n)
+    add('Modules which where unable to loaded')
+    add(n)
+    for _, p in ipairs(unloaded) do
+      lines[#lines+1] = p.module
+    end
+    add(n)
   end
 
   load_buffer('Impatient Profile Report', lines)
@@ -202,7 +220,7 @@ M.setup = function(profile)
     if not profile[basename] then
       profile[basename] = {}
       profile[basename].resolve_start = uv.hrtime()
-      profile[basename].loader_guess = 'C'
+      profile[basename].loader_guess = ''
     end
     return _require(mod)
   end

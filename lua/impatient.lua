@@ -78,7 +78,7 @@ local function log(...)
   M.log[#M.log+1] = table.concat({string.format(...)}, ' ')
 end
 
-function M.print_log()
+local function print_log()
   for _, l in ipairs(M.log) do
     print(l)
   end
@@ -92,11 +92,9 @@ function M.enable_profile()
 
   P.setup(M.modpaths.profile)
 
-  M.print_profile = function()
+  api.nvim_create_user_command('LuaCacheProfile', function()
     P.print_profile(M)
-  end
-
-  vim.cmd[[command! LuaCacheProfile lua _G.__luacache.print_profile()]]
+  end, {})
 end
 
 local function hash(modpath)
@@ -156,23 +154,35 @@ local function get_runtime_file_from_parent(basename, paths)
   end
 end
 
+local rtp = vim.split(vim.o.rtp, ',')
+
+-- Make sure modpath is in rtp
+local function validate_modpath(modpath)
+  for _, dir in ipairs(rtp) do
+    if vim.startswith(modpath, dir) then
+      return fs_stat(modpath) ~= nil
+    end
+  end
+  return false
+end
+
 local function get_runtime_file_cached(basename, paths)
   local modpath, loader
   local mp = M.modpaths
   if mp.enable then
-    if mp.cache[basename] then
-      local modpath_cached = mp:get(basename)
-      if fs_stat(modpath_cached) then
-        modpath, loader = modpath_cached, 'cache'
-      else
-        -- Invalidate
-        mp.cache[basename] = nil
-        mp.dirty = true
-      end
+    local modpath_cached = mp:get(basename)
+    if modpath_cached then
+      modpath, loader = modpath_cached, 'cache'
+    else
+      modpath, loader = get_runtime_file_from_parent(basename, paths)
     end
 
-    if not modpath then
-      modpath, loader = get_runtime_file_from_parent(basename, paths)
+    if modpath and not validate_modpath(modpath) then
+      modpath = nil
+
+      -- Invalidate
+      mp.cache[basename] = nil
+      mp.dirty = true
     end
   end
 
@@ -349,7 +359,7 @@ function M.save_cache()
   _save_cache(M.modpaths)
 end
 
-function M.clear_cache()
+local function clear_cache()
   local function _clear_cache(t)
     t.cache = {}
     os.remove(t.path)
@@ -391,6 +401,13 @@ end
 local function setup()
   init_cache()
 
+  -- Usual package loaders
+  -- 1. package.preload
+  -- 2. vim._load_package
+  -- 3. package.path
+  -- 4. package.cpath
+  -- 5. all-in-one
+
   -- Override default functions
   for i, loader in ipairs(package.loaders) do
     if loader == vim._load_package then
@@ -403,14 +420,23 @@ local function setup()
   vim.api.nvim__get_runtime = get_runtime_cached
   loadfile = loadfile_cached
 
-  vim.cmd[[
-    augroup impatient
-      autocmd VimEnter,VimLeave * lua _G.__luacache.save_cache()
-    augroup END
+  local augroup = api.nvim_create_augroup('impatient', {})
 
-    command! LuaCacheClear lua _G.__luacache.clear_cache()
-    command! LuaCacheLog   lua _G.__luacache.print_log()
-  ]]
+  api.nvim_create_user_command('LuaCacheClear', clear_cache, {})
+  api.nvim_create_user_command('LuaCacheLog'  , print_log  , {})
+
+  api.nvim_create_autocmd({'VimEnter', 'VimLeave'}, {
+    group = augroup,
+    callback = M.save_cache
+  })
+
+  api.nvim_create_autocmd('OptionSet', {
+    group = augroup,
+    pattern = 'runtimepath',
+    callback = function()
+      rtp = vim.split(vim.o.rtp, ',')
+    end
+  })
 
 end
 
