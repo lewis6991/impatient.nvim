@@ -5,6 +5,7 @@ local _loadfile = loadfile
 local get_runtime = api.nvim__get_runtime
 local fs_stat = uv.fs_stat
 local mpack = vim.mpack
+local loadlib = package.loadlib
 
 local std_cache = vim.fn.stdpath('cache')
 
@@ -84,19 +85,6 @@ local function print_log()
   end
 end
 
-function M.enable_profile()
-  local P = require('impatient.profile')
-
-  M.chunks.profile = {}
-  M.modpaths.profile = {}
-
-  P.setup(M.modpaths.profile)
-
-  api.nvim_create_user_command('LuaCacheProfile', function()
-    P.print_profile(M, std_dirs)
-  end, {})
-end
-
 local function hash(modpath)
   local stat = fs_stat(modpath)
   if stat then
@@ -129,6 +117,26 @@ local function cprofile(path, name, loader)
   profile(M.chunks, path, name, loader)
 end
 
+function M.enable_profile()
+  local P = require('impatient.profile')
+
+  M.chunks.profile = {}
+  M.modpaths.profile = {}
+
+  loadlib = function(path, fun)
+    cprofile(path, 'load_start')
+    local f, err = package.loadlib(path, fun)
+    cprofile(path, 'load_end', 'standard')
+    return f, err
+  end
+
+  P.setup(M.modpaths.profile)
+
+  api.nvim_create_user_command('LuaCacheProfile', function()
+    P.print_profile(M, std_dirs)
+  end, {})
+end
+
 local function get_runtime_file_from_parent(basename, paths)
   -- Look in the cache to see if we have already loaded a parent module.
   -- If we have then try looking in the parents directory first.
@@ -156,8 +164,18 @@ end
 
 local rtp = vim.split(vim.o.rtp, ',')
 
--- Make sure modpath is in rtp
-local function validate_modpath(modpath)
+-- Make sure modpath is in rtp and that modpath is in paths.
+local function validate_modpath(modpath, paths)
+  local match = false
+  for _, p in ipairs(paths) do
+    if vim.endswith(modpath, p) then
+      match = true
+      break
+    end
+  end
+  if not match then
+    return false
+  end
   for _, dir in ipairs(rtp) do
     if vim.startswith(modpath, dir) then
       return fs_stat(modpath) ~= nil
@@ -177,7 +195,7 @@ local function get_runtime_file_cached(basename, paths)
       modpath, loader = get_runtime_file_from_parent(basename, paths)
     end
 
-    if modpath and not validate_modpath(modpath) then
+    if modpath and not validate_modpath(modpath, paths) then
       modpath = nil
 
       -- Invalidate
@@ -281,7 +299,7 @@ local function load_package(name)
     -- So "foo-bar.baz" should result in "luaopen_bar_baz"
     local dash = name:find("-", 1, true)
     local modname = dash and name:sub(dash + 1) or name
-    local f, err = package.loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
+    local f, err = loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
     return f or error(err)
   end
   return nil
