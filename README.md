@@ -42,7 +42,15 @@ use 'lewis6991/impatient.nvim'
 
 ## Setup
 
-impatient needs to be setup before any other lua plugin is loaded so it is recommended you add the following near the start of your `init.vim`.
+To use impatient, you need only to include it near the top of your `init.lua` or `init.vim`.
+
+init.lua:
+
+```lua
+require('impatient')
+```
+
+init.vim:
 
 ```viml
 lua require('impatient')
@@ -69,9 +77,9 @@ lua require'impatient'.enable_profile()
 ## Configuration
 
 Unlike most plugins which provide a `setup()` function, Impatient uses a configuration table stored in the global state, `_G.__luacache_config`.
-This must be populated before `require('impatient')` is run.
+If you modify the default configuration, it must be done before `require('impatient')` is run.
 
-Example:
+Default config:
 
 ```lua
 _G.__luacache_config = {
