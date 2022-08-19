@@ -25,9 +25,7 @@ local std_dirs = {
 
 local function modpath_mangle(modpath)
   for name, dir in pairs(std_dirs) do
-    if (dir ~= 'nil') then
-      modpath = modpath:gsub(dir, name)
-    end
+    modpath = modpath:gsub(dir, name)
   end
   return modpath
 end

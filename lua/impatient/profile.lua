@@ -1,5 +1,12 @@
 local M = {}
 
+local sep = ''
+if (jit.os == 'Windows') then
+  sep = '\\'
+else
+  sep = '/'
+end
+
 local api, uv = vim.api, vim.loop
 
 local function load_buffer(title, lines)
@@ -56,7 +63,7 @@ function M.print_profile(I, std_dirs)
   local unloaded = {}
 
   for module, m in pairs(mod_profile) do
-    local module_dot = module:gsub('/', '.')
+    local module_dot = module:gsub(sep, '.')
     m.module = module_dot
 
     if not package.loaded[module_dot] and not package.loaded[module] then
@@ -222,7 +229,7 @@ M.setup = function(profile)
   local _require = require
 
   require = function(mod)
-    local basename = mod:gsub('%.', '/')
+    local basename = mod:gsub('%.', sep)
     if not profile[basename] then
       profile[basename] = {}
       profile[basename].resolve_start = uv.hrtime()
@@ -236,7 +243,7 @@ M.setup = function(profile)
   for i = 1, #pl do
     local l = pl[i]
     pl[i] = function(mod)
-      local basename = mod:gsub('%.', '/')
+      local basename = mod:gsub('%.', sep)
       profile[basename].loader_guess = i == 1 and 'preloader' or 'loader #'..i
       return l(mod)
     end
