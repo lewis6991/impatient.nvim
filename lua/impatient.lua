@@ -9,6 +9,13 @@ local loadlib = package.loadlib
 
 local std_cache = vim.fn.stdpath('cache')
 
+local sep = ''
+if (jit.os == 'Windows') then
+  sep = '\\'
+else
+  sep = '/'
+end
+
 local std_dirs = {
   ['<APPDIR>']     = os.getenv('APPDIR'),
   ['<VIMRUNTIME>'] = os.getenv('VIMRUNTIME'),
@@ -34,11 +41,11 @@ end
 local default_config = {
   chunks = {
     enable = true,
-    path = std_cache..'/luacache_chunks',
+    path = std_cache .. sep .. 'luacache_chunks',
   },
   modpaths = {
     enable = true,
-    path = std_cache..'/luacache_modpaths',
+    path = std_cache.. sep .. 'luacache_modpaths',
   },
 }
 
@@ -140,12 +147,12 @@ end
 local function get_runtime_file_from_parent(basename, paths)
   -- Look in the cache to see if we have already loaded a parent module.
   -- If we have then try looking in the parents directory first.
-  local parents = vim.split(basename, '/')
+  local parents = vim.split(basename, sep)
   for i = #parents, 1, -1 do
-    local parent = table.concat(vim.list_slice(parents, 1, i), '/')
+    local parent = table.concat(vim.list_slice(parents, 1, i), sep)
     local ppath = M.modpaths:get(parent)
     if ppath then
-      if ppath:sub(-9) == '/init.lua' then
+      if (ppath:sub(-9) == (sep .. 'init.lua')) then
         ppath = ppath:sub(1, -10) -- a/b/init.lua -> a/b
       else
         ppath = ppath:sub(1, -5)  -- a/b.lua -> a/b
@@ -153,7 +160,7 @@ local function get_runtime_file_from_parent(basename, paths)
 
       for _, path in ipairs(paths) do
         -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
-        local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
+        local modpath = ppath..sep..path:sub(#('lua'..sep..parent)+2)
         if fs_stat(modpath) then
           return modpath, 'cache(p)'
         end
@@ -228,8 +235,8 @@ local function extract_basename(pats)
   for _, pat in ipairs(pats) do
     for i, npat in ipairs{
       -- Ordered by most specific
-      'lua/(.*)/init%.lua',
-      'lua/(.*)%.lua'
+      'lua'.. sep ..'(.*)'..sep..'init%.lua',
+      'lua'.. sep ..'(.*)%.lua'
     } do
       local m = pat:match(npat)
       if i == 2 and m and m:sub(-4) == 'init' then
@@ -271,8 +278,8 @@ end
 
 -- Copied from neovim/src/nvim/lua/vim.lua with two lines changed
 local function load_package(name)
-  local basename = name:gsub('%.', '/')
-  local paths = {"lua/"..basename..".lua", "lua/"..basename.."/init.lua"}
+  local basename = name:gsub('%.', sep)
+  local paths = {"lua"..sep..basename..".lua", "lua"..sep..basename..sep.."init.lua"}
 
   -- Original line:
   -- local found = vim.api.nvim__get_runtime(paths, false, {is_lua=true})
