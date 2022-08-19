@@ -13,13 +13,6 @@ local function load_buffer(title, lines)
   api.nvim_set_current_buf(bufnr)
 end
 
-local sep = ''
-if (jit.os == 'Windows') then
-  sep = '\\'
-else
-  sep = '/'
-end
-
 local function time_tostr(x)
   if x == 0 then
     return '?'
@@ -63,7 +56,7 @@ function M.print_profile(I, std_dirs)
   local unloaded = {}
 
   for module, m in pairs(mod_profile) do
-    local module_dot = module:gsub(sep, '.')
+    local module_dot = module:gsub('/', '.')
     m.module = module_dot
 
     if not package.loaded[module_dot] and not package.loaded[module] then
@@ -229,7 +222,7 @@ M.setup = function(profile)
   local _require = require
 
   require = function(mod)
-    local basename = mod:gsub('%.', sep)
+    local basename = mod:gsub('%.', '/')
     if not profile[basename] then
       profile[basename] = {}
       profile[basename].resolve_start = uv.hrtime()
@@ -243,7 +236,7 @@ M.setup = function(profile)
   for i = 1, #pl do
     local l = pl[i]
     pl[i] = function(mod)
-      local basename = mod:gsub('%.', sep)
+      local basename = mod:gsub('%.', '/')
       profile[basename].loader_guess = i == 1 and 'preloader' or 'loader #'..i
       return l(mod)
     end
