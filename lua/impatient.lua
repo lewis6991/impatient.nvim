@@ -9,12 +9,7 @@ local loadlib = package.loadlib
 
 local std_cache = vim.fn.stdpath('cache')
 
-local sep = ''
-if (jit.os == 'Windows') then
-  sep = '\\'
-else
-  sep = '/'
-end
+local sep = vim.loop.os_uname().sysname:match('Windows') and '\\' or '/'
 
 local std_dirs = {
   ['<APPDIR>']     = os.getenv('APPDIR'),
