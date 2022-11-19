@@ -50,6 +50,8 @@ init.lua:
 require('impatient')
 ```
 
+_Or `pcall(require, 'impatient')` to avoid failure when `impatient` is not yet installed yet._
+
 init.vim:
 
 ```viml
