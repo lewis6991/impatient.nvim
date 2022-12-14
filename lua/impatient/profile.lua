@@ -19,7 +19,7 @@ local function time_tostr(x)
   if x == 0 then
     return '?'
   end
-  return string.format('%8.3fms', x)
+  return (string.format('%8.3fms', x / 1000000))
 end
 
 local function mem_tostr(x)
@@ -34,7 +34,7 @@ local function mem_tostr(x)
   return string.format('%1.1f%s', x, unit)
 end
 
-function M.print_profile(I, std_dirs)
+function M.print_profile(I, std_dirs, impatient_time)
   local mod_profile = I.modpaths.profile
   local chunk_profile = I.chunks.profile
 
@@ -49,13 +49,17 @@ function M.print_profile(I, std_dirs)
 
   for path, m in pairs(chunk_profile) do
     m.load = m.load_end - m.load_start
-    m.load = m.load / 1000000
+    m.load = m.load
     m.path = path or '?'
   end
 
   local module_content_width = 0
 
   local unloaded = {}
+
+  local count = 0
+  local load_cached_count = 0
+  local resolve_cached_count = 0
 
   for module, m in pairs(mod_profile) do
     local module_dot = module:gsub(sep, '.')
@@ -67,7 +71,7 @@ function M.print_profile(I, std_dirs)
       m.resolve = 0
       if m.resolve_start and m.resolve_end then
         m.resolve = m.resolve_end - m.resolve_start
-        m.resolve = m.resolve / 1000000
+        m.resolve = m.resolve
       end
 
       m.loader = m.loader or m.loader_guess
@@ -83,6 +87,15 @@ function M.print_profile(I, std_dirs)
       else
         m.load = 0
         m.ploader = 'NA'
+      end
+
+      count = count + 1
+      if vim.startswith(m.loader, 'cache') then
+        resolve_cached_count = resolve_cached_count + 1
+      end
+
+      if vim.startswith(m.ploader, 'cache') then
+        load_cached_count = load_cached_count + 1
       end
 
       total_resolve = total_resolve + m.resolve
@@ -102,9 +115,13 @@ function M.print_profile(I, std_dirs)
 
   local paths = {}
 
+  local path_cached_count = 0
   local total_paths_load = 0
   for _, m in pairs(chunk_profile) do
     paths[#paths+1] = m
+    if vim.startswith(m.loader, 'cache') then
+      path_cached_count = path_cached_count + 1
+    end
     total_paths_load = total_paths_load + m.load
   end
 
@@ -176,6 +193,27 @@ function M.print_profile(I, std_dirs)
   for alias, path in pairs(std_dirs) do
     add('  %-12s -> %s', alias, path)
   end
+  add('')
+
+  local function pct_to_str(a)
+    return string.format('%3.1f%%', a * 100)
+  end
+
+  local total = total_paths_load + impatient_time + total_load + total_resolve
+  local resolve_pct = pct_to_str(resolve_cached_count / count)
+  local load_pct = pct_to_str(load_cached_count / count)
+  local path_pct = pct_to_str(path_cached_count / #paths)
+
+  add('─────────────────────────────────────────────────────┐')
+  add('Summary                                              │')
+  add('────────────────────────┬────────────────────────────┤')
+  add('Impatient overhead      │ %s                 │', impatient_time)
+  add('Total resolve (modules) │ %s (%6s cached) │', total_resolve, resolve_pct)
+  add('Total load (modules)    │ %s (%6s cached) │', total_load, load_pct)
+  add('Total load (paths)      │ %s (%6s cached) │', total_paths_load, path_pct)
+  add('────────────────────────┼────────────────────────────┤')
+  add('Total                   │ %s                 │', total)
+  add('────────────────────────┴────────────────────────────┘')
   add('')
 
   add('%s─%s┬%s─%s┐', tcwl, lcwl, tcwl, lcwl)

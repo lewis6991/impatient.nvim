@@ -1,6 +1,9 @@
 local vim = vim
 local api = vim.api
 local uv = vim.loop
+
+local start = uv.hrtime()
+
 local _loadfile = loadfile
 local get_runtime = api.nvim__get_runtime
 local fs_stat = uv.fs_stat
@@ -119,6 +122,8 @@ local function cprofile(path, name, loader)
   profile(M.chunks, path, name, loader)
 end
 
+local impatient_time
+
 function M.enable_profile()
   local P = require('impatient.profile')
 
@@ -135,7 +140,7 @@ function M.enable_profile()
   P.setup(M.modpaths.profile)
 
   api.nvim_create_user_command('LuaCacheProfile', function()
-    P.print_profile(M, std_dirs)
+    P.print_profile(M, std_dirs, impatient_time)
   end, {})
 end
 
@@ -201,6 +206,7 @@ local function get_runtime_file_cached(basename, paths)
       modpath = nil
 
       -- Invalidate
+      log('Invalidating module cache for module %s: not in rtp', basename)
       mp.cache[basename] = nil
       mp.dirty = true
     end
@@ -461,5 +467,6 @@ local function setup()
 end
 
 setup()
+impatient_time = uv.hrtime() - start
 
 return M
