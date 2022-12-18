@@ -169,9 +169,28 @@ local function get_runtime_file_from_parent(basename, paths)
   end
 end
 
-local rtp = vim.split(vim.o.rtp, ',')
+local rtp, rtpv
+local RTP_PACK_PAT = '(.*)'..sep..'pack'..sep
+local RTP_LUA_PAT  = '(.*)'..sep..'lua'..sep
 
--- Make sure modpath is in rtp and that modpath is in paths.
+local function check_rtp(path)
+  if not vim.in_fast_event() and rtpv ~= vim.o.rtp then
+    rtp = {}
+    for _, p in ipairs(vim.split(vim.o.rtp, ',')) do
+      p = p:gsub('^~', vim.env.HOME)
+      rtp[p] = true
+    end
+    rtpv = vim.o.rtp
+  end
+
+  path = path:match(RTP_PACK_PAT) or path:match(RTP_LUA_PAT)
+  if not path then
+    return false
+  end
+
+  return rtp[path] ~= nil
+end
+
 local function validate_modpath(modpath, paths)
   local match = false
   for _, p in ipairs(paths) do
@@ -183,12 +202,13 @@ local function validate_modpath(modpath, paths)
   if not match then
     return false
   end
-  for _, dir in ipairs(rtp) do
-    if vim.startswith(modpath, dir) then
-      return fs_stat(modpath) ~= nil
-    end
+
+  if not check_rtp(modpath) then
+    return false
   end
-  return false
+
+  -- On M1 this costs about 2-3ms for ~300 lookups
+  return fs_stat(modpath) ~= nil
 end
 
 local function get_runtime_file_cached(basename, paths)
@@ -454,14 +474,6 @@ local function setup()
   api.nvim_create_autocmd({'VimEnter', 'VimLeave'}, {
     group = augroup,
     callback = M.save_cache
-  })
-
-  api.nvim_create_autocmd('OptionSet', {
-    group = augroup,
-    pattern = 'runtimepath',
-    callback = function()
-      rtp = vim.split(vim.o.rtp, ',')
-    end
   })
 
 end
