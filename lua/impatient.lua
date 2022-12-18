@@ -249,16 +249,18 @@ local function get_runtime_file_cached(basename, paths)
   return modpath
 end
 
+local BASENAME_PATS = {
+  -- Ordered by most specific
+  'lua'.. sep ..'(.*)'..sep..'init%.lua',
+  'lua'.. sep ..'(.*)%.lua'
+}
+
 local function extract_basename(pats)
   local basename
 
   -- Deconstruct basename from pats
   for _, pat in ipairs(pats) do
-    for i, npat in ipairs{
-      -- Ordered by most specific
-      'lua'.. sep ..'(.*)'..sep..'init%.lua',
-      'lua'.. sep ..'(.*)%.lua'
-    } do
+    for i, npat in ipairs(BASENAME_PATS) do
       local m = pat:match(npat)
       if i == 2 and m and m:sub(-4) == 'init' then
         m = m:sub(0, -6)
