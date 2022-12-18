@@ -1,4 +1,3 @@
-local vim = vim
 local api = vim.api
 local uv = vim.loop
 
@@ -8,7 +7,6 @@ local _loadfile = loadfile
 local get_runtime = api.nvim__get_runtime
 local fs_stat = uv.fs_stat
 local mpack = vim.mpack
-local loadlib = package.loadlib
 
 local std_cache = vim.fn.stdpath('cache')
 
@@ -130,9 +128,10 @@ function M.enable_profile()
   M.chunks.profile = {}
   M.modpaths.profile = {}
 
-  loadlib = function(path, fun)
+  local orig_loadlib = package.loadlib
+  package.loadlib = function(path, fun)
     cprofile(path, 'load_start')
-    local f, err = package.loadlib(path, fun)
+    local f, err = orig_loadlib(path, fun)
     cprofile(path, 'load_end', 'standard')
     return f, err
   end
@@ -299,42 +298,6 @@ local function get_runtime_cached(pats, all, opts)
   return {get_runtime_file_cached(basename, pats)}
 end
 
--- Copied from neovim/src/nvim/lua/vim.lua with two lines changed
-local function load_package(name)
-  local basename = name:gsub('%.', sep)
-  local paths = {"lua"..sep..basename..".lua", "lua"..sep..basename..sep.."init.lua"}
-
-  -- Original line:
-  -- local found = vim.api.nvim__get_runtime(paths, false, {is_lua=true})
-  local found = {get_runtime_file_cached(basename, paths)}
-  if #found > 0 then
-    local f, err = loadfile(found[1])
-    return f or error(err)
-  end
-
-  local so_paths = {}
-  for _,trail in ipairs(vim._so_trails) do
-    local path = "lua"..trail:gsub('?', basename) -- so_trails contains a leading slash
-    table.insert(so_paths, path)
-  end
-
-  -- Original line:
-  -- found = vim.api.nvim__get_runtime(so_paths, false, {is_lua=true})
-  found = {get_runtime_file_cached(basename, so_paths)}
-  if #found > 0 then
-    -- Making function name in Lua 5.1 (see src/loadlib.c:mkfuncname) is
-    -- a) strip prefix up to and including the first dash, if any
-    -- b) replace all dots by underscores
-    -- c) prepend "luaopen_"
-    -- So "foo-bar.baz" should result in "luaopen_bar_baz"
-    local dash = name:find("-", 1, true)
-    local modname = dash and name:sub(dash + 1) or name
-    local f, err = loadlib(found[1], "luaopen_"..modname:gsub("%.", "_"))
-    return f or error(err)
-  end
-  return nil
-end
-
 local function load_from_cache(path)
   local mc = M.chunks
 
@@ -448,22 +411,6 @@ end
 
 local function setup()
   init_cache()
-
-  -- Usual package loaders
-  -- 1. package.preload
-  -- 2. vim._load_package
-  -- 3. package.path
-  -- 4. package.cpath
-  -- 5. all-in-one
-
-  -- Override default functions
-  for i, loader in ipairs(package.loaders) do
-    if loader == vim._load_package then
-      package.loaders[i] = load_package
-      break
-    end
-  end
-  vim._load_package = load_package
 
   vim.api.nvim__get_runtime = get_runtime_cached
   loadfile = loadfile_cached
