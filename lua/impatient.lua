@@ -354,6 +354,7 @@ local function loadfile_cached(path)
 end
 
 function M.save_cache()
+local function save_cache()
   local function _save_cache(t)
     if not t.enable then
       return
@@ -422,7 +423,7 @@ local function setup()
 
   api.nvim_create_autocmd({'VimEnter', 'VimLeave'}, {
     group = augroup,
-    callback = M.save_cache
+    callback = save_cache
   })
 
 end
