@@ -49,7 +49,6 @@ local default_config = {
 local default_state = {
   chunks = {
     cache = {},
-    profile = nil,
     dirty = false,
     get = function(self, path)
       return self.cache[modpath_mangle(path)]
@@ -60,7 +59,6 @@ local default_state = {
   },
   modpaths = {
     cache = {},
-    profile = nil,
     dirty = false,
     get = function(self, mod)
       if self.cache[mod] then
@@ -96,52 +94,7 @@ local function hash(modpath)
   error('Could not hash '..modpath)
 end
 
-local function profile(m, entry, name, loader)
-  if m.profile then
-    local mp = m.profile
-    mp[entry] = mp[entry] or {}
-    if not mp[entry].loader and loader then
-      mp[entry].loader = loader
-    end
-    if not mp[entry][name] then
-      mp[entry][name] = uv.hrtime()
-    end
-  end
-end
-
-local function mprofile(mod, name, loader)
-  profile(M.modpaths, mod, name, loader)
-end
-
-local function cprofile(path, name, loader)
-  if M.chunks.profile then
-    path = modpath_mangle(path)
-  end
-  profile(M.chunks, path, name, loader)
-end
-
-local impatient_time
-
-function M.enable_profile()
-  local P = require('impatient.profile')
-
-  M.chunks.profile = {}
-  M.modpaths.profile = {}
-
-  local orig_loadlib = package.loadlib
-  package.loadlib = function(path, fun)
-    cprofile(path, 'load_start')
-    local f, err = orig_loadlib(path, fun)
-    cprofile(path, 'load_end', 'standard')
-    return f, err
-  end
-
-  P.setup(M.modpaths.profile)
-
-  api.nvim_create_user_command('LuaCacheProfile', function()
-    P.print_profile(M, std_dirs, impatient_time)
-  end, {})
-end
+local mprofile = function(_, _, _) end
 
 local function get_runtime_file_from_parent(basename, paths)
   -- Look in the cache to see if we have already loaded a parent module.
@@ -327,15 +280,12 @@ local function load_from_cache(path)
 end
 
 local function loadfile_cached(path)
-  cprofile(path, 'load_start')
-
   local chunk, err
 
   if M.chunks.enable then
     chunk, err = load_from_cache(path)
     if chunk and not err then
       log('Loaded cache for path %s', path)
-      cprofile(path, 'load_end', 'cache')
       return chunk
     end
     log(err)
@@ -349,11 +299,22 @@ local function loadfile_cached(path)
     M.chunks.dirty = true
   end
 
-  cprofile(path, 'load_end', 'standard')
   return chunk, err
 end
 
-function M.save_cache()
+local impatient_time
+
+function M.enable_profile()
+  local P = require('impatient.profile')
+  P.setup(M, {
+    std_dirs = std_dirs,
+    modpath_mangle = modpath_mangle,
+    impatient_time = impatient_time,
+    loadfile_cached = loadfile_cached
+  })
+  mprofile = P.mprofile
+end
+
 local function save_cache()
   local function _save_cache(t)
     if not t.enable then
