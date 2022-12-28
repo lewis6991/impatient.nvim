@@ -1,20 +1,24 @@
 local M = {}
+local C
 
 local sep = vim.loop.os_uname().sysname:match('Windows') and '\\' or '/'
 
 local api, uv = vim.api, vim.loop
 
-local function load_buffer(title, lines)
+--- @param title string
+--- @param lines string[]
+local function open_buffer(title, lines)
   local bufnr = api.nvim_create_buf(false, false)
   api.nvim_buf_set_lines(bufnr, 0, 0, false, lines)
-  api.nvim_buf_set_option(bufnr, 'bufhidden', 'wipe')
-  api.nvim_buf_set_option(bufnr, 'buftype', 'nofile')
-  api.nvim_buf_set_option(bufnr, 'swapfile', false)
-  api.nvim_buf_set_option(bufnr, "modifiable", false)
+  vim.bo[bufnr].bufhidden = 'wipe'
+  vim.bo[bufnr].buftype = 'nofile'
+  vim.bo[bufnr].swapfile = false
+  vim.bo[bufnr].modifiable = false
   api.nvim_buf_set_name(bufnr, title)
   api.nvim_set_current_buf(bufnr)
 end
 
+--- @param x number
 local function time_tostr(x)
   if x == 0 then
     return '?'
@@ -22,6 +26,7 @@ local function time_tostr(x)
   return (string.format('%8.3fms', x / 1000000))
 end
 
+--- @param x integer
 local function mem_tostr(x)
   local unit = ''
   for _, u in ipairs{'K', 'M', 'G'} do
@@ -34,7 +39,14 @@ local function mem_tostr(x)
   return string.format('%1.1f%s', x, unit)
 end
 
-function M.print_profile(I, std_dirs, impatient_time)
+--- @param x number
+local function pct_to_str(x)
+  return string.format('%3.1f%%', x * 100)
+end
+
+--- @param std_dirs {[string]: string}
+--- @param impatient_time integer
+local function print_profile(I, std_dirs, impatient_time)
   local mod_profile = I.modpaths.profile
   local chunk_profile = I.chunks.profile
 
@@ -129,8 +141,8 @@ function M.print_profile(I, std_dirs, impatient_time)
     return a.load > b.load
   end)
 
-
   local lines = {}
+  --- @param fmt string
   local function add(fmt, ...)
     local args = {...}
     for i, a in ipairs(args) do
@@ -195,10 +207,6 @@ function M.print_profile(I, std_dirs, impatient_time)
   end
   add('')
 
-  local function pct_to_str(a)
-    return string.format('%3.1f%%', a * 100)
-  end
-
   local total = total_paths_load + impatient_time + total_load + total_resolve
   local resolve_pct = pct_to_str(resolve_cached_count / count)
   local load_pct = pct_to_str(load_cached_count / count)
@@ -255,32 +263,107 @@ function M.print_profile(I, std_dirs, impatient_time)
     add(n)
   end
 
-  load_buffer('Impatient Profile Report', lines)
+  open_buffer('Impatient Profile Report', lines)
 end
 
-M.setup = function(profile)
-  local _require = require
+--- @alias LoadfileFn fun(path: string): fun()
 
-  require = function(mod)
-    local basename = mod:gsub('%.', sep)
-    if not profile[basename] then
-      profile[basename] = {}
-      profile[basename].resolve_start = uv.hrtime()
-      profile[basename].loader_guess = ''
-    end
-    return _require(mod)
+--- @param loadfile_cached LoadfileFn
+local function add_profiling(loadfile_cached)
+  local orig_loadlib = package.loadlib
+  package.loadlib = function(path, fun)
+    M.cprofile(path, 'load_start')
+    local f, err = orig_loadlib(path, fun)
+    M.cprofile(path, 'load_end', 'standard')
+    return f, err
   end
 
-  -- Add profiling around all the loaders
+  local orig_loadfile = loadfile
+  loadfile = function(path)
+    M.cprofile(path, 'load_start')
+    local chunk, err = orig_loadfile(path)
+    local loader = orig_loadfile == loadfile_cached and 'cache' or 'standard'
+    M.cprofile(path, 'load_end', loader)
+    return chunk, err
+  end
+
+  local mprofile = C.modpaths.profile
+
+  local orig_require = require
+  require = function(mod)
+    local basename = mod:gsub('%.', sep)
+    if not mprofile[basename] then
+      mprofile[basename] = {}
+      mprofile[basename].resolve_start = uv.hrtime()
+      mprofile[basename].loader_guess = ''
+    end
+    return orig_require(mod)
+  end
+
+  -- Keep track of which loader was used
   local pl = package.loaders
   for i = 1, #pl do
     local l = pl[i]
+    --- @param mod string
     pl[i] = function(mod)
       local basename = mod:gsub('%.', sep)
-      profile[basename].loader_guess = i == 1 and 'preloader' or 'loader #'..i
+      if mprofile[basename] then
+        mprofile[basename].loader_guess = i == 1 and 'preloader' or 'loader #'..i
+      end
       return l(mod)
     end
   end
+end
+
+M.setup = function(_C, m)
+  C = _C
+  C.chunks.profile = {}
+  C.modpaths.profile = {}
+  M.modpath_mangle = m.modpath_mangle
+
+  api.nvim_create_user_command('LuaCacheProfile', function()
+    print_profile(C, m.std_dirs, m.impatient_time)
+  end, {})
+
+  add_profiling(m.loadfile_cached)
+end
+
+--- @param entry string
+--- @param event string
+--- @param loader? string
+local function profile(m, entry, event, loader)
+  local mp = m.profile
+
+  if not mp then
+    return
+  end
+
+  mp[entry] = mp[entry] or {}
+
+  if not mp[entry].loader then
+    mp[entry].loader = loader
+  end
+
+  if not mp[entry][event] then
+    mp[entry][event] = uv.hrtime()
+  end
+end
+
+--- @param mod string
+--- @param event string
+--- @param loader? string
+function M.mprofile(mod, event, loader)
+  profile(C.modpaths, mod, event, loader)
+end
+
+--- @param path string
+--- @param event string
+--- @param loader? string
+function M.cprofile(path, event, loader)
+  if C.chunks.profile then
+    path = M.modpath_mangle(path)
+  end
+  profile(C.chunks, path, event, loader)
 end
 
 return M
