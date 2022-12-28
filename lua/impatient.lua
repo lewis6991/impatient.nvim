@@ -19,6 +19,8 @@ local std_dirs = {
   ['<STD_CONFIG>'] = vim.fn.stdpath('config'),
 }
 
+--- @param modpath string
+--- @return string
 local function modpath_mangle(modpath)
   for name, dir in pairs(std_dirs) do
     modpath = modpath:gsub(dir, name)
@@ -26,6 +28,8 @@ local function modpath_mangle(modpath)
   return modpath
 end
 
+--- @param modpath string
+--- @return string
 local function modpath_unmangle(modpath)
   for name, dir in pairs(std_dirs) do
     modpath = modpath:gsub(name, dir)
@@ -86,6 +90,8 @@ local function print_log()
   end
 end
 
+--- @param modpath string
+--- @return string
 local function hash(modpath)
   local stat = fs_stat(modpath)
   if stat then
@@ -96,6 +102,9 @@ end
 
 local mprofile = function(_, _, _) end
 
+--- @param basename string
+--- @param paths string[]
+--- @return string?, string?
 local function get_runtime_file_from_parent(basename, paths)
   -- Look in the cache to see if we have already loaded a parent module.
   -- If we have then try looking in the parents directory first.
@@ -125,6 +134,8 @@ local rtp, rtpv
 local RTP_PACK_PAT = '(.*)'..sep..'pack'..sep
 local RTP_LUA_PAT  = '(.*)'..sep..'lua'..sep
 
+--- @param path string
+--- @return boolean
 local function check_rtp(path)
   if not vim.in_fast_event() and rtpv ~= vim.o.rtp then
     rtp = {}
@@ -143,6 +154,9 @@ local function check_rtp(path)
   return rtp[path] ~= nil
 end
 
+--- @param modpath string
+--- @param paths string[]
+--- @return boolean
 local function validate_modpath(modpath, paths)
   local match = false
   for _, p in ipairs(paths) do
@@ -163,6 +177,9 @@ local function validate_modpath(modpath, paths)
   return fs_stat(modpath) ~= nil
 end
 
+--- @param basename string
+--- @param paths string[]
+--- @return string
 local function get_runtime_file_cached(basename, paths)
   local modpath, loader
   local mp = M.modpaths
@@ -207,6 +224,8 @@ local BASENAME_PATS = {
   'lua'.. sep ..'(.*)%.lua'
 }
 
+--- @param pats string[]
+--- @return string?
 local function extract_basename(pats)
   local basename
 
@@ -231,6 +250,10 @@ local function extract_basename(pats)
   return basename
 end
 
+--- @param pats string[]
+--- @param all boolean
+--- @param opts {is_lua:boolean}
+--- @return string[]
 local function get_runtime_cached(pats, all, opts)
   local fallback = false
   if all or not opts or not opts.is_lua then
@@ -238,6 +261,7 @@ local function get_runtime_cached(pats, all, opts)
     fallback = true
   end
 
+  --- @type string?
   local basename
 
   if not fallback then
@@ -245,12 +269,14 @@ local function get_runtime_cached(pats, all, opts)
   end
 
   if fallback or not basename then
-    return get_runtime(pats, all, opts)
+    return assert(get_runtime(pats, all, opts))
   end
 
   return {get_runtime_file_cached(basename, pats)}
 end
 
+--- @param path string
+--- @return fun()?, string?
 local function load_from_cache(path)
   local mc = M.chunks
 
@@ -279,12 +305,15 @@ local function load_from_cache(path)
   return chunk
 end
 
+--- @param path string
+--- @return function?, string?
 local function loadfile_cached(path)
+  --- @type fun()?, string?
   local chunk, err
 
   if M.chunks.enable then
     chunk, err = load_from_cache(path)
-    if chunk and not err then
+    if chunk then
       log('Loaded cache for path %s', path)
       return chunk
     end
@@ -293,7 +322,7 @@ local function loadfile_cached(path)
 
   chunk, err = _loadfile(path)
 
-  if not err and M.chunks.enable then
+  if chunk and M.chunks.enable then
     log('Creating cache for path %s', path)
     M.chunks:set(path, {hash(path), string.dump(chunk)})
     M.chunks.dirty = true
