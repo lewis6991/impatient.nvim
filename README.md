@@ -1,6 +1,7 @@
 # impatient.nvim
 
 [![CI](https://github.com/lewis6991/impatient.nvim/workflows/CI/badge.svg?branch=main)](https://github.com/lewis6991/impatient.nvim/actions?query=workflow%3ACI)
+[![LuaRocks](https://img.shields.io/luarocks/v/lewis6991/impatient.nvim?logo=lua&color=purple)](https://luarocks.org/modules/lewis6991/impatient.nvim)
 
 Speed up loading Lua modules in Neovim to improve startup time.
 
