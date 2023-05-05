@@ -1,3 +1,11 @@
+# NOTICE
+
+As of Neovim 0.9, this plugin is no longer required. Instead run:
+
+```lua
+vim.loader.enable()
+```
+
 # impatient.nvim
 
 [![CI](https://github.com/lewis6991/impatient.nvim/workflows/CI/badge.svg?branch=main)](https://github.com/lewis6991/impatient.nvim/actions?query=workflow%3ACI)
