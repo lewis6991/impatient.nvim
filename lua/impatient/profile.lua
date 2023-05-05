@@ -196,8 +196,10 @@ local function print_profile(I, std_dirs, impatient_time)
 
   add('Cache files:')
   for _, f in ipairs{ I.chunks.path, I.modpaths.path } do
-    local size = vim.loop.fs_stat(f).size
-    add('  %s %s', f, mem_tostr(size))
+    if vim.loop.fs_stat(f) then
+      local size = vim.loop.fs_stat(f).size
+      add('  %s %s', f, mem_tostr(size))
+    end
   end
   add('')
 
